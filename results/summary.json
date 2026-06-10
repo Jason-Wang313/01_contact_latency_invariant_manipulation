@@ -1,0 +1,26 @@
+{
+  "contact_age_invariant": {
+    "impulse_latency_slope_ns_per_s": 0.0,
+    "max_peak_force_n": 8.482923066993704,
+    "mean_overshoot_n": 0.4829230669937029,
+    "mean_peak_force_n": 8.482923066993703,
+    "overshoot_latency_slope_n_per_s": -5.097250364631222e-15,
+    "peak_force_latency_slope_n_per_s": -5.0972503646312214e-15
+  },
+  "delay_scaled_cautious": {
+    "impulse_latency_slope_ns_per_s": 12.26929665730417,
+    "max_peak_force_n": 33.89018778708705,
+    "mean_overshoot_n": 11.643246846615316,
+    "mean_peak_force_n": 19.64324684661532,
+    "overshoot_latency_slope_n_per_s": 169.7365146527858,
+    "peak_force_latency_slope_n_per_s": 169.7365146527858
+  },
+  "delayed_force": {
+    "impulse_latency_slope_ns_per_s": 61.501425334207546,
+    "max_peak_force_n": 70.31471792575223,
+    "mean_overshoot_n": 24.714212856895397,
+    "mean_peak_force_n": 32.7142128568954,
+    "overshoot_latency_slope_n_per_s": 410.12972570588994,
+    "peak_force_latency_slope_n_per_s": 410.1297257058899
+  }
+}

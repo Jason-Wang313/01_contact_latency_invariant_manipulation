@@ -1,0 +1,26 @@
+[
+  {
+    "claim": "same_contact_mode_linear_kelvin_voigt",
+    "max_abs_residual_n": 7.105427357601002e-15,
+    "mean_abs_residual_n": 1.2328804643857437e-15,
+    "samples": 10000,
+    "status": "passed_with_floating_point_tolerance"
+  },
+  {
+    "claim": "naive_delay_advance_across_mode_switch",
+    "example_q_delayed_m": -0.009979493782916573,
+    "example_q_now_m": 0.0031164833518641756,
+    "example_v_delayed_mps": 0.0017801472082764613,
+    "example_v_now_mps": 0.05334938235916804,
+    "max_abs_residual_n": 25.934222805125152,
+    "samples": 10000,
+    "status": "counterexample_found"
+  },
+  {
+    "claim": "model_mismatch_bound_needed",
+    "max_abs_residual_n": 3.8597524191531214,
+    "mean_abs_residual_n": 1.2768628376599587,
+    "samples": 10000,
+    "status": "not_exact_under_wrong_model"
+  }
+]
