@@ -69,3 +69,20 @@ Stage 11 complete: literature artifacts, runnable evidence, paper compile, final
 
 ## Recovery Steps
 - None yet.
+
+Exit code: 0
+End time: 2026-06-10 21:53:44 +01:00
+PDF exists: True
+
+## Submission Hardening v2
+
+Completed: 2026-06-12 19:05:42 +01:00
+Terminal decision: workshop-only
+Canonical PDF: C:/Users/wangz/Downloads/01.pdf
+
+Key changes:
+- Added force-advance-only and contact-age-target-only ablations.
+- Added 30-seed randomized stress test with uncertainty estimates.
+- Added recent 2024-2026 hostile force/tactile policy citations.
+- Narrowed claims after ablation showed force advancement dominates latency invariance.
+- Recompiled paper and replaced the canonical Downloads PDF.

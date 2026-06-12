@@ -157,6 +157,78 @@ class CautiousDelayedController:
         return clip_velocity(u, control), delayed_force, target, 0.0
 
 
+class ForceAdvanceOnlyController:
+    name = "force_advance_only"
+
+    def __init__(self) -> None:
+        self.contact_time_hat: float | None = None
+
+    def reset(self) -> None:
+        self.contact_time_hat = None
+
+    def command(
+        self,
+        t: float,
+        q: float,
+        v: float,
+        delayed_q: float,
+        delayed_v: float,
+        delayed_force: float,
+        params: PlantParams,
+        control: ControlParams,
+    ) -> tuple[float, float, float, float]:
+        k_hat = params.stiffness * control.k_hat_scale
+        c_hat = params.damping * control.c_hat_scale
+        if q > 0.0 and self.contact_time_hat is None:
+            self.contact_time_hat = t
+        if self.contact_time_hat is None:
+            return control.approach_velocity, 0.0, 0.0, 0.0
+
+        contact_age = max(0.0, t - self.contact_time_hat)
+        if q <= 0.0:
+            predicted = 0.0
+        elif delayed_q > 0.0:
+            predicted = delayed_force + k_hat * (q - delayed_q) + c_hat * (v - delayed_v)
+            predicted = max(0.0, predicted)
+        else:
+            predicted = max(0.0, k_hat * q + c_hat * v)
+
+        target = control.desired_force
+        u = control.force_gain * (target - predicted)
+        return clip_velocity(u, control), predicted, target, contact_age
+
+
+class ContactAgeTargetOnlyController:
+    name = "contact_age_target_only"
+
+    def __init__(self) -> None:
+        self.contact_time_hat: float | None = None
+
+    def reset(self) -> None:
+        self.contact_time_hat = None
+
+    def command(
+        self,
+        t: float,
+        q: float,
+        v: float,
+        delayed_q: float,
+        delayed_v: float,
+        delayed_force: float,
+        params: PlantParams,
+        control: ControlParams,
+    ) -> tuple[float, float, float, float]:
+        if q > 0.0 and self.contact_time_hat is None:
+            self.contact_time_hat = t
+        if self.contact_time_hat is None:
+            return control.approach_velocity, 0.0, 0.0, 0.0
+
+        contact_age = max(0.0, t - self.contact_time_hat)
+        target = min(control.desired_force, control.ramp_rate * contact_age)
+        u = control.force_gain * (target - delayed_force)
+        return clip_velocity(u, control), delayed_force, target, contact_age
+
+
 class ContactAgeInvariantController:
     name = "contact_age_invariant"
 

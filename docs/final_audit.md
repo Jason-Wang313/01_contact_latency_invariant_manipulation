@@ -17,6 +17,8 @@ The narrow novelty is the combination of:
 
 The paper does not claim novelty over impedance control, force control, Smith prediction, passivity, tactile contact estimation, or contact-rich learning in general.
 
+Submission-hardening v2 narrows this further: the new mechanism ablation shows force advancement alone removes most latency sensitivity in the 1D simulator (`max_peak_force_n=9.04`, zero measured slope), while the full controller mainly reduces first-contact overshoot (`max_peak_force_n=8.48`). The paper must therefore sell contact-age phasing as safety shaping and semantic bookkeeping, not as the sole cause of invariance.
+
 ## 5. Closest Hostile Prior Work
 Closest hostile clusters:
 - Smith predictors and time-delay control, which make generic delay compensation non-novel.
@@ -25,6 +27,8 @@ Closest hostile clusters:
 - Tactile manipulation/contact estimation, which makes contact-state estimation non-novel.
 
 Representative cited hostile works include Smith (1957), Raibert and Craig (1981), Mason (1981), Hogan (1985), Anderson and Spong (1989), Niemeyer and Slotine (1991), Stramigioli et al. (2005), Franken et al. (2011), Posa et al. (2014), Beltran-Hernandez et al. (2020), and Suomalainen et al. (2022).
+
+Submission-hardening v2 also adds recent force/tactile policy threats: Xie et al. (2024), Xue et al. (2025), and Zang et al. (2026). These make any broad novelty claim around force/tactile feedback untenable.
 
 ## 6. Literature Coverage
 - `docs/related_work_matrix.csv`: 1242 entries.
@@ -45,24 +49,32 @@ Adversarial status:
 - 15 percent stiffness/damping mismatch breaks exactness, with mean residual `1.28` N and max residual `3.86` N.
 
 ## 8. Strongest Evidence
-Runnable latency sweep in `scripts/run_experiments.py`.
+Runnable latency sweep, mechanism ablation, and seeded stress suite in `scripts/run_experiments.py`.
 
 Main result from `results/summary.json`:
 - delayed force feedback: max peak `70.31` N, mean overshoot `24.71` N, peak-force latency slope `410.13` N/s;
 - delay-scaled cautious baseline: max peak `33.89` N, mean overshoot `11.64` N, slope `169.74` N/s;
+- force-advance-only ablation: max peak `9.04` N, mean overshoot `1.04` N, slope `0.00` N/s;
+- contact-age-target-only ablation: max peak `70.32` N, mean overshoot `23.74` N, slope `427.59` N/s;
 - contact-age invariant controller: max peak `8.48` N, mean overshoot `0.48` N, slope approximately zero in the ideal local model.
+
+Stress result from `results/stress_summary.json`:
+- 30 seeds, 5 configured latencies, randomized stiffness, damping, servo time constant, initial gap, model estimates, and effective latency;
+- at 150 ms, full controller mean peak `8.64 +/- 0.40` N (95 percent CI);
+- full controller exceeded 12 N in `1.3%` of stress runs, compared with `80.7%` for delayed feedback and the cautious baseline.
 
 ## 9. Biggest Weaknesses
 - No hardware experiment.
 - One-dimensional local contact model only.
 - Assumes fast timestamped proprioception and useful local stiffness/damping estimates.
 - Exact invariance fails across contact-mode errors and under model mismatch.
+- Ablation shows the headline result is mostly local force advancement; contact-age phasing is a secondary overshoot reduction, not an independent invariance mechanism.
 - ICLR fit is plausible as embodied intelligence/control, but the evidence is closer to a workshop or early-stage mechanism paper than a full main-conference robotics result.
 
 ## 10. Paper-Readiness Judgment
-Workshop / revise.
+Workshop-only for immediate submission; strong-revise for any main-conference target.
 
-The mechanism is crisp and runnable, and the paper is honest about limits. It is not ready for a strong main-conference submission without multi-DOF simulation, tactile timestamp estimation, and hardware validation.
+The mechanism is crisp, runnable, and more honest after v2. It is not ready for a strong main-conference submission without multi-DOF simulation, tactile timestamp estimation, and hardware validation. The terminal condition for paper 01 is therefore `workshop-only`, with honest limit reached for this local repository.
 
 ## 11. Exact Downloads PDF Path
 `C:/Users/wangz/Downloads/01.pdf`
@@ -72,3 +84,9 @@ The mechanism is crisp and runnable, and the paper is honest about limits. It is
 
 ## 13. Desktop Copy Status
 pending orchestrator copy
+
+## Orchestrator Desktop Copy
+
+Checked: 2026-06-10 21:53:50 +01:00
+Downloads PDF: C:/Users/wangz/Downloads/01.pdf
+Result: copy script exit 0 log C:\Users\wangz\robotics_60_paper_batch\logs\desktop_copy_01_20260610_215345.log

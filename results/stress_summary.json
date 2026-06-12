@@ -1,0 +1,52 @@
+{
+  "contact_age_invariant": {
+    "failure_rate_peak_gt_12n": 0.013333333333333334,
+    "high_latency_150ms_ci95_peak_n": 0.3972888809163026,
+    "high_latency_150ms_mean_peak_n": 8.636694973698784,
+    "max_peak_force_n": 12.172599332004442,
+    "mean_overshoot_n": 0.5475829136504927,
+    "mean_peak_force_n": 8.547581898823218,
+    "n_runs": 150.0,
+    "p95_peak_force_n": 11.11985288077459
+  },
+  "contact_age_target_only": {
+    "failure_rate_peak_gt_12n": 0.8,
+    "high_latency_150ms_ci95_peak_n": 3.6629960604475293,
+    "high_latency_150ms_mean_peak_n": 69.75252143673174,
+    "max_peak_force_n": 91.78651856559925,
+    "mean_overshoot_n": 32.23093018749296,
+    "mean_peak_force_n": 40.23093018749296,
+    "n_runs": 150.0,
+    "p95_peak_force_n": 75.85327354370855
+  },
+  "delay_scaled_cautious": {
+    "failure_rate_peak_gt_12n": 0.8066666666666666,
+    "high_latency_150ms_ci95_peak_n": 0.6024135207369525,
+    "high_latency_150ms_mean_peak_n": 33.706534932181405,
+    "max_peak_force_n": 37.75666219405345,
+    "mean_overshoot_n": 14.818023938599035,
+    "mean_peak_force_n": 22.818023938599037,
+    "n_runs": 150.0,
+    "p95_peak_force_n": 34.656187292907866
+  },
+  "delayed_force": {
+    "failure_rate_peak_gt_12n": 0.8066666666666666,
+    "high_latency_150ms_ci95_peak_n": 3.662924247005962,
+    "high_latency_150ms_mean_peak_n": 69.75414688346183,
+    "max_peak_force_n": 91.78086290670338,
+    "mean_overshoot_n": 32.58194614635378,
+    "mean_peak_force_n": 40.58194614635378,
+    "n_runs": 150.0,
+    "p95_peak_force_n": 75.84802108078497
+  },
+  "force_advance_only": {
+    "failure_rate_peak_gt_12n": 0.013333333333333334,
+    "high_latency_150ms_ci95_peak_n": 0.42613368576052163,
+    "high_latency_150ms_mean_peak_n": 9.008872544984461,
+    "max_peak_force_n": 12.224884523624354,
+    "mean_overshoot_n": 0.9755634161200836,
+    "mean_peak_force_n": 8.975563075696387,
+    "n_runs": 150.0,
+    "p95_peak_force_n": 11.745680093600878
+  }
+}
