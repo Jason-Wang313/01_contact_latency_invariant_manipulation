@@ -112,3 +112,15 @@ These are the 100 papers most likely to make the proposed idea look incremental,
 - Impedance, admittance, and hybrid force/position control make compliant force regulation non-novel.
 - Tactile manipulation makes contact-state estimation from tactile evidence non-novel.
 - The remaining boundary is narrower: contact evidence can be delayed across a hybrid event, so the controller should explicitly estimate the mismatch between physical contact age and observation age.
+
+## Submission-Hardening v2 Addendum
+
+Checked on 2026-06-12 against recent public arXiv/web-indexed work:
+
+| Year | Work | Why Hostile | Boundary Left Open |
+|---:|---|---|---|
+| 2024 | Xie et al., "Just Add Force for Contact-Rich Robot Policies" | Shows force feedback improves contact-rich learned policies and reports latency-relevant force-policy benefits. | Does not isolate first-contact event-age mismatch or prove same-mode force advancement. |
+| 2025 | Xue et al., "Reactive Diffusion Policy" | Uses slow-fast visual-tactile control with high-frequency tactile/force feedback for contact-rich tasks. | Treats fast tactile feedback as a policy input, not an explicit hybrid event-age state with formal mode-boundary checks. |
+| 2026 | Zang et al., "TacForeSight" | Uses force-guided tactile prediction and real-robot contact-rich tasks, directly hostile to broad tactile prediction claims. | Predicts tactile latents for policy conditioning rather than auditing whether delayed evidence belongs to the current contact age. |
+
+Hardening implication: broad novelty around force/tactile feedback, reactive force policies, or tactile prediction is dead. The only defensible novelty boundary is the explicit timing-mismatch state and the formal validity boundary for local force advancement across contact-event semantics.

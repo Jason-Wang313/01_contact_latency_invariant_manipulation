@@ -21,9 +21,12 @@
 
 \begin{document}
 \maketitle
+\begin{center}
+{\small Submission-hardening version: v2 (2026-06-12).}
+\end{center}
 
 \begin{abstract}
-Contact-rich robot manipulation is usually studied as a problem of force regulation, compliance, planning through contact, or delayed feedback stability. This paper argues for a narrower failure variable: during first contact, delayed tactile or force evidence may describe the wrong \emph{contact age}. A controller can be stable and still accumulate damaging impulse before the delayed contact observation arrives. We study a minimal mechanism, contact-age invariant control, that maintains a contact timing mismatch state, advances delayed contact evidence through a local contact model, and indexes force objectives by inferred contact age rather than wall-clock time or raw delayed force. In a fixed linear Kelvin--Voigt contact mode, the force-advance step exactly cancels constant force-sensing latency when the local stiffness, damping, and proprioceptive state are correct. Numeric counterexamples show the claim fails across contact-mode switches and under model mismatch, so the contribution is not a generic delay solution. In a one-dimensional contact simulator, peak first-contact force for delayed force feedback grows from 9.54 N at zero configured latency to 70.31 N at 150 ms, while the contact-age controller remains at 8.48 N across the same sweep. The result is a deliberately small but runnable piece of evidence that contact timing mismatch should be represented as a first-class state in contact-rich manipulation.
+Contact-rich robot manipulation is usually studied as a problem of force regulation, compliance, planning through contact, or delayed feedback stability. This paper argues for a narrower failure variable: during first contact, delayed tactile or force evidence may describe the wrong \emph{contact age}. A controller can be stable and still accumulate damaging impulse before the delayed contact observation arrives. We study a minimal mechanism, contact-age invariant control, that maintains a contact timing mismatch state, advances delayed contact evidence through a local contact model, and indexes force objectives by inferred contact age rather than wall-clock time or raw delayed force. In a fixed linear Kelvin--Voigt contact mode, the force-advance step exactly cancels constant force-sensing latency when the local stiffness, damping, and proprioceptive state are correct. New ablations narrow the claim: force advancement is the dominant ingredient for latency invariance in this simulator, while contact-age phasing mainly reduces first-contact overshoot. Peak first-contact force for delayed force feedback grows from 9.54 N at zero configured latency to 70.31 N at 150 ms; the full controller remains at 8.48 N in the ideal sweep and has 8.64 N mean peak force at 150 ms over 30 randomized stress seeds. Numeric counterexamples show the claim fails across contact-mode switches and under model mismatch, so the result is a deliberately small but runnable argument for exposing contact timing mismatch as a first-class controller state.
 \end{abstract}
 
 \section{Introduction}
@@ -38,7 +41,7 @@ The contribution is intentionally scoped.
 \begin{itemize}
     \item We identify a field assumption: delayed contact evidence remains semantically aligned with the current contact mode.
     \item We give a small algebraic claim: in a known linear contact mode, delayed force can be advanced exactly using current-minus-delayed proprioception.
-    \item We provide runnable evidence in a one-dimensional contact task, with scripts, plots, and an adversarial claim checker.
+    \item We provide runnable evidence in a one-dimensional contact task, including ablations that separate force advancement from contact-age target phasing and a 30-seed randomized stress test.
     \item We mark the strongest limitations: no hardware, no global contact-mode proof, no claim under arbitrary frictional contact, and only abstract-level automated literature coverage beyond the closest cited works.
 \end{itemize}
 
@@ -52,6 +55,9 @@ Time-delay control and teleoperation have a mature literature. Smith predictors 
 
 \paragraph{Planning and learning through contact.}
 Trajectory optimization through rigid contact \citep{posa2013direct} and contact-rich policy learning \citep{levine2015learning} model or learn the mechanics of intermittent contact. They make the idea of using a contact model non-novel. The present work does not add a bigger model or a reinforcement learner. It asks what state variable the controller should expose when contact observation latency changes without changing geometry or dynamics.
+
+\paragraph{Recent force and tactile policies.}
+Recent manipulation systems increasingly add force or tactile streams to learned policies, data collection, or predictive tactile models. Examples include force-conditioned grasp-policy data \citep{xie2024just}, slow-fast visual-tactile policy learning with high-frequency tactile feedback \citep{xue2025reactive}, and force-guided tactile foresight for contact-rich manipulation \citep{zang2026tacforesight}. These papers are hostile to any broad claim that force/tactile feedback for contact-rich manipulation is new. Our boundary is narrower and more classical: before learning a rich policy, a controller may need to represent whether the force/tactile evidence belongs to the current contact age.
 
 \section{Problem Setup}
 
@@ -107,7 +113,7 @@ This is the whole formal guarantee. It is not a global hybrid-system theorem. Ou
 \section{Experiments}
 
 \paragraph{Simulator.}
-We use a minimal point endpoint approaching a rigid contact. The plant receives velocity commands through a first-order servo, contact force is Kelvin--Voigt, and the task is to reach an 8 N contact force. We sweep force/tactile sensing latency from 0 to 150 ms. Three controllers are compared: delayed force feedback, a delay-scaled cautious baseline that slows the blind approach as latency grows, and contact-age invariant control. All scripts are in the repository: \texttt{scripts/run\_experiments.py} produces the CSV, JSON, and figures; \texttt{scripts/verify\_claims.py} produces the formal audit and counterexamples.
+We use a minimal point endpoint approaching a rigid contact. The plant receives velocity commands through a first-order servo, contact force is Kelvin--Voigt, and the task is to reach an 8 N contact force. We sweep force/tactile sensing latency from 0 to 150 ms. Five controllers are compared: delayed force feedback; a delay-scaled cautious baseline that slows the blind approach as latency grows; force advancement without contact-age target phasing; contact-age target phasing without force advancement; and the full controller. All scripts are in the repository: \texttt{scripts/run\_experiments.py} produces the CSV, JSON, and figures; \texttt{scripts/verify\_claims.py} produces the formal audit and counterexamples.
 
 \begin{figure}[t]
     \centering
@@ -126,6 +132,8 @@ We use a minimal point endpoint approaching a rigid contact. The plant receives 
         \midrule
         Delayed force feedback & 70.31 & 24.71 & 410.13 \\
         Delay-scaled cautious & 33.89 & 11.64 & 169.74 \\
+        Force advancement only & 9.04 & 1.04 & 0.00 \\
+        Contact-age target only & 70.32 & 23.74 & 427.59 \\
         Contact-age invariant & 8.48 & 0.48 & $<10^{-12}$ \\
         \bottomrule
     \end{tabular}
@@ -133,16 +141,34 @@ We use a minimal point endpoint approaching a rigid contact. The plant receives 
 
 Figure~\ref{fig:peak} and Table~\ref{tab:summary} show the main result. The delayed controller is acceptable near zero latency but becomes unsafe as the blind interval grows. The cautious controller reduces the slope but still lets peak force rise with latency and sacrifices final regulation at larger delays. The contact-age controller's peak force is constant in the ideal local model because the controller's force estimate is no longer indexed by delayed observation time.
 
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.86\linewidth]{figures/mechanism_ablation.png}
+    \caption{Mechanism ablation. Force advancement alone removes most latency sensitivity in this local simulator, while contact-age target phasing alone does not. The full controller gives the lowest first-contact peak but the ablation narrows the novelty claim: event-age phasing is a safety shaping layer on top of local force advancement, not the sole source of invariance.}
+    \label{fig:ablation}
+\end{figure}
+
+Figure~\ref{fig:ablation} is deliberately adversarial. It shows that force advancement is the dominant ingredient for latency invariance in the one-dimensional model. Contact-age target phasing alone tracks the delayed-force failure mode because it still compares the target against stale force evidence. The full method improves the peak from 9.04 N to 8.48 N relative to force advancement alone, but this is a modest overshoot improvement, not a separate proof of novelty over prediction-based delay compensation.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.86\linewidth]{figures/seeded_stress_peak_force.png}
+    \caption{Seeded stress test over 30 random seeds with stiffness, damping, servo time constant, initial gap, model-estimate, and effective-latency perturbations. Markers show mean peak force; error bars are 95 percent confidence intervals over seeds.}
+    \label{fig:stress}
+\end{figure}
+
+We also run a 30-seed stress test with randomized stiffness, damping, servo time constant, initial gap, stiffness/damping estimates, and effective latency. At 150 ms configured latency, delayed force feedback reaches $69.75\pm3.66$ N mean peak force, the delay-scaled cautious baseline reaches $33.71\pm0.60$ N, and the full controller reaches $8.64\pm0.40$ N. Across all stress runs, the full controller exceeds 12 N in 1.3 percent of runs, compared with 80.7 percent for both delayed force feedback and the cautious baseline. The stress test therefore supports bounded robustness in this local model, not deployment readiness.
+
 \paragraph{Adversarial checks.}
-The formal audit reports a same-mode maximum residual of $7.1\times10^{-15}$ N for 10,000 random samples. It also finds a mode-switch counterexample with 25.93 N residual for a naive force-advance rule applied across pre-contact to post-contact samples. With a 15 percent stiffness error and 15 percent damping error in opposite directions, the mean force-prediction residual is 1.28 N and the max residual is 3.86 N. These failures are important: exact invariance requires the local model and contact mode to be right.
+The formal audit reports a same-mode maximum residual of $7.1\times10^{-15}$ N for 10,000 random samples. It also finds a mode-switch counterexample with 25.93 N residual for a naive force-advance rule applied across pre-contact to post-contact samples. With a 15 percent stiffness error and 15 percent damping error in opposite directions, the mean force-prediction residual is 1.28 N and the max residual is 3.86 N. These failures are important: exact invariance requires the local model and contact mode to be right. The ablation in Figure~\ref{fig:ablation} adds another boundary: this paper must not claim that contact-age phasing alone solves delayed contact evidence.
 
 \section{Limitations}
 
-This is not a hardware paper. The evidence is a controlled one-dimensional simulator designed to isolate a timing assumption. The method assumes fast timestamped proprioception and a useful local contact model. Unknown geometry, deformable contact, stick-slip friction, actuator saturation, and unobserved contact modes can break the mechanism. The literature sweep contains 1242 OpenAlex entries and a 100-paper hostile set, but the automated 225-paper deep tier is an abstract/metadata classification rather than a manual full-PDF read. The correct readiness judgment is therefore conservative: the idea is plausible and runnable, but it needs multi-DOF simulation, tactile timestamp estimation, and hardware validation before a strong conference submission.
+This is not a hardware paper. The evidence is a controlled one-dimensional simulator designed to isolate a timing assumption. The method assumes fast timestamped proprioception and a useful local contact model. Unknown geometry, deformable contact, stick-slip friction, actuator saturation, and unobserved contact modes can break the mechanism. The new ablation weakens the original rhetorical position: in this simulator, force advancement alone is already nearly latency invariant, so the contribution cannot be sold as a wholly new alternative to prediction-based delay compensation. The honest claim is that representing contact event age exposes when local prediction is semantically valid, when it crosses a hybrid boundary, and how force targets should be phased at first contact. The literature sweep contains 1242 OpenAlex entries and a 100-paper hostile set, but the automated 225-paper deep tier is an abstract/metadata classification rather than a manual full-PDF read. The correct readiness judgment is therefore conservative: the idea is plausible and runnable, but it needs multi-DOF simulation, tactile timestamp estimation, and hardware validation before a strong conference submission.
 
 \section{Conclusion}
 
-Contact latency in manipulation is not only a delayed signal problem. At first contact, it is a delayed hybrid-event semantics problem. Treating the contact timing mismatch as a state variable leads to a simple controller that advances delayed force evidence and phases force objectives by contact age. In the local linear-contact regime this cancels constant force-sensing latency exactly; outside that regime, the same formal check exposes the failure modes. The broader lesson is that embodied controllers should sometimes be invariant to observation time by moving into event-age coordinates.
+Contact latency in manipulation is not only a delayed signal problem. At first contact, it is a delayed hybrid-event semantics problem. Treating the contact timing mismatch as a state variable leads to a simple controller that advances delayed force evidence and phases force objectives by contact age. In the local linear-contact regime this cancels constant force-sensing latency exactly; outside that regime, the same formal check exposes the failure modes. The ablation clarifies the mechanism: local force advancement carries most of the invariance, and contact-age phasing reduces first-contact overshoot. The broader lesson is that embodied controllers should sometimes be invariant to observation time by moving into event-age coordinates, but this paper is only a local simulation argument for that design principle.
 
 \bibliography{references}
 \bibliographystyle{iclr2026_conference}
