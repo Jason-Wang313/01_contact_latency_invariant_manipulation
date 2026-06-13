@@ -1,0 +1,19 @@
+{
+  "best_tuned_hyperparameters": {
+    "latency_gain_schedule": "28",
+    "low_pass_delayed": "0.70",
+    "tuned_cautious": "40"
+  },
+  "elapsed_seconds": 3194.2968466999882,
+  "full_trajectories_saved_only_for_selected_examples": true,
+  "streaming": true,
+  "suites": {
+    "event_estimation.csv": 1920,
+    "large_seed_stress.csv": 6480,
+    "mode_switch_grid.csv": 3600,
+    "model_mismatch_grid.csv": 420,
+    "negative_controls.csv": 12,
+    "nominal_latency_grid.csv": 112
+  },
+  "total_runs": 12544
+}

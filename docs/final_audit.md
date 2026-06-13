@@ -19,6 +19,8 @@ The paper does not claim novelty over impedance control, force control, Smith pr
 
 Submission-hardening v2 narrows this further: the new mechanism ablation shows force advancement alone removes most latency sensitivity in the 1D simulator (`max_peak_force_n=9.04`, zero measured slope), while the full controller mainly reduces first-contact overshoot (`max_peak_force_n=8.48`). The paper must therefore sell contact-age phasing as safety shaping and semantic bookkeeping, not as the sole cause of invariance.
 
+Full-scale v3 narrows and strengthens the claim again. The final manuscript treats CAIC as an event-age interface around local prediction, not a dominance claim. Smith-style prediction is a close hostile baseline, and one-step MPC wins some peak-force scalars while losing final-force tracking.
+
 ## 5. Closest Hostile Prior Work
 Closest hostile clusters:
 - Smith predictors and time-delay control, which make generic delay compensation non-novel.
@@ -49,7 +51,7 @@ Adversarial status:
 - 15 percent stiffness/damping mismatch breaks exactness, with mean residual `1.28` N and max residual `3.86` N.
 
 ## 8. Strongest Evidence
-Runnable latency sweep, mechanism ablation, and seeded stress suite in `scripts/run_experiments.py`.
+Runnable latency sweep, mechanism ablation, seeded stress suite, formal claim audit, and full-scale streamed suite in `scripts/run_experiments.py`, `scripts/verify_claims.py`, and `scripts/run_full_scale_experiments.py`.
 
 Main result from `results/summary.json`:
 - delayed force feedback: max peak `70.31` N, mean overshoot `24.71` N, peak-force latency slope `410.13` N/s;
@@ -63,18 +65,29 @@ Stress result from `results/stress_summary.json`:
 - at 150 ms, full controller mean peak `8.64 +/- 0.40` N (95 percent CI);
 - full controller exceeded 12 N in `1.3%` of stress runs, compared with `80.7%` for delayed feedback and the cautious baseline.
 
+Full-scale v3 result from `results/full_scale/full_scale_summary.json` and `results/full_scale/leaderboard.csv`:
+- 12,544 streamed rollouts with compact metrics written to disk;
+- 6,480-run large stress suite over 180 seeds, latency variation, profile families, and plant/model variation;
+- nominal latency grid: delayed force feedback reaches `111.90` N at 250 ms, while CAIC remains at `8.48` N;
+- large stress suite: CAIC has `9.22` N mean peak force, `11.62` N p95 peak force, and `3.1%` unsafe peaks;
+- large stress suite: delayed force feedback has `66.79` N mean peak force, `169.14` N p95 peak force, and `85.4%` unsafe peaks;
+- one-step MPC has lower mean peak force (`5.82` N) but higher mean final-force error (`3.50` N), so the final paper does not claim dominance;
+- event-estimation suite: delayed force-edge contact timing fails every trial; 20% event dropout produces rare peaks up to `261.35` N;
+- mode/profile suite: hard-to-soft profiles produce most remaining CAIC failures, giving an explicit same-mode boundary.
+
 ## 9. Biggest Weaknesses
 - No hardware experiment.
 - One-dimensional local contact model only.
 - Assumes fast timestamped proprioception and useful local stiffness/damping estimates.
 - Exact invariance fails across contact-mode errors and under model mismatch.
-- Ablation shows the headline result is mostly local force advancement; contact-age phasing is a secondary overshoot reduction, not an independent invariance mechanism.
-- ICLR fit is plausible as embodied intelligence/control, but the evidence is closer to a workshop or early-stage mechanism paper than a full main-conference robotics result.
+- Ablation shows the nominal latency result is mostly local force advancement; contact-age phasing is a secondary overshoot reduction and audit interface, not an independent invariance mechanism.
+- Event-time observability is mandatory. If contact is detected only by the delayed force edge, CAIC fails.
+- Hard-to-soft mode shifts remain a real boundary and require a mode-validity monitor before hardware claims.
 
 ## 10. Paper-Readiness Judgment
-Workshop-only for immediate submission; strong-revise for any main-conference target.
+Final under the current batch standard: 26-page full-scale simulation/mechanism manuscript with strong baselines, explicit negative results, generated tables/figures, reproducibility materials, and a verified Downloads PDF path.
 
-The mechanism is crisp, runnable, and more honest after v2. It is not ready for a strong main-conference submission without multi-DOF simulation, tactile timestamp estimation, and hardware validation. The terminal condition for paper 01 is therefore `workshop-only`, with honest limit reached for this local repository.
+The paper is still not a hardware-ready robotics result. Its honest final form is a full-scale simulation audit of contact-age state, local force advancement, event timing, and mode validity. A stronger venue version would need multi-DOF simulation, tactile timestamp estimation, hardware validation, and a guarded supervisor for low event-confidence cases.
 
 ## 11. Exact Downloads PDF Path
 `C:/Users/wangz/Downloads/01.pdf`
@@ -83,10 +96,16 @@ The mechanism is crisp, runnable, and more honest after v2. It is not ready for 
 `https://github.com/Jason-Wang313/01_contact_latency_invariant_manipulation`
 
 ## 13. Desktop Copy Status
-pending orchestrator copy
+v3 final copied to Downloads after 26-page build verification
 
 ## Orchestrator Desktop Copy
 
 Checked: 2026-06-10 21:53:50 +01:00
 Downloads PDF: C:/Users/wangz/Downloads/01.pdf
 Result: copy script exit 0 log C:\Users\wangz\robotics_60_paper_batch\logs\desktop_copy_01_20260610_215345.log
+
+## v3 Final Copy Gate
+
+- Local PDF verified as actual paper text, not a status or analysis document.
+- Local PDF verified at 26 pages before copying to Downloads.
+- Final PDF copied and re-verified at `C:/Users/wangz/Downloads/01.pdf`.

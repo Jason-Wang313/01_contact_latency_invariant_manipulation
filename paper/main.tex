@@ -8,6 +8,7 @@
 \usepackage{booktabs}
 \usepackage{amsmath}
 \usepackage{amssymb}
+\usepackage{array}
 
 \title{Contact-Age Invariant Control for Delayed Contact Evidence}
 
@@ -18,63 +19,77 @@
 \newcommand{\qpos}{q}
 \newcommand{\qvel}{\dot q}
 \newcommand{\ctm}{\Delta}
+\newcommand{\caic}{CAIC}
+\newcommand{\ms}{\mathrm{ms}}
 
 \begin{document}
 \maketitle
-\begin{center}
-{\small Submission-hardening version: v2 (2026-06-12).}
-\end{center}
 
 \begin{abstract}
-Contact-rich robot manipulation is usually studied as a problem of force regulation, compliance, planning through contact, or delayed feedback stability. This paper argues for a narrower failure variable: during first contact, delayed tactile or force evidence may describe the wrong \emph{contact age}. A controller can be stable and still accumulate damaging impulse before the delayed contact observation arrives. We study a minimal mechanism, contact-age invariant control, that maintains a contact timing mismatch state, advances delayed contact evidence through a local contact model, and indexes force objectives by inferred contact age rather than wall-clock time or raw delayed force. In a fixed linear Kelvin--Voigt contact mode, the force-advance step exactly cancels constant force-sensing latency when the local stiffness, damping, and proprioceptive state are correct. New ablations narrow the claim: force advancement is the dominant ingredient for latency invariance in this simulator, while contact-age phasing mainly reduces first-contact overshoot. Peak first-contact force for delayed force feedback grows from 9.54 N at zero configured latency to 70.31 N at 150 ms; the full controller remains at 8.48 N in the ideal sweep and has 8.64 N mean peak force at 150 ms over 30 randomized stress seeds. Numeric counterexamples show the claim fails across contact-mode switches and under model mismatch, so the result is a deliberately small but runnable argument for exposing contact timing mismatch as a first-class controller state.
+Contact-rich manipulation usually treats delayed force or tactile sensing as a delayed-feedback problem. This paper argues for a more specific failure mode: at first contact, delayed evidence can have the wrong \emph{contact age}. A force sample may be numerically accurate for the past while semantically referring to the pre-contact side of a hybrid event. We study contact-age invariant control (\caic{}), a small controller interface that stores a contact-event time, advances delayed force evidence through a local contact model using current proprioception, and indexes the force target by inferred contact age. The contribution is intentionally narrow, but the evidence is no longer a toy single plot. We report 12,544 streamed rollouts across a held-out latency grid, tuned cautious baselines, low-pass and gain-scheduled delayed feedback, Smith-style prediction, one-step model predictive control, adaptive windowed force advancement, contact-event estimator noise, model mismatch, mode/profile shifts, negative controls, and a large sequential stress suite. In the nominal held-out latency grid, delayed force feedback reaches 111.90 N peak force at 250 ms, while \caic{} remains at 8.48 N and Smith-style prediction at 9.04 N. In the 6,480-run large stress suite, \caic{} has 9.22 N mean peak force and 3.1\% unsafe peaks above 12 N, compared with 66.79 N and 85.4\% for delayed feedback. A one-step MPC baseline achieves lower mean peak force, 5.82 N, but with higher mean final force error, 3.50 N, showing that the paper is not a dominance claim. The strongest boundary is event timing: delayed force-edge contact detection fails in every event-estimation trial, and 20\% missed contact events produce rare but severe peaks up to 261.35 N. The final claim is therefore a mechanism and interface claim: contact-age state makes delayed contact evidence auditable and safe in local regimes, while exposing when event timing, model mismatch, and mode changes invalidate the controller.
 \end{abstract}
 
 \section{Introduction}
 
-Robots that manipulate through contact must react to events that are both mechanical and semantic. The instant a gripper, tool, or end-effector touches the world, the control problem changes: position error becomes penetration, velocity becomes impact, and a force sample becomes meaningful only if its timestamp belongs to the current contact mode. This is uncomfortable for controllers that treat sensing latency as ordinary delayed feedback. A delayed force sample is not merely old; at first touch it may be evidence from the wrong side of a hybrid guard.
+Robots that manipulate through contact do not merely regulate a continuous force signal. They cross hybrid events. Before contact, a position error is a free-space motion objective; after contact, the same displacement becomes penetration, impulse, and possible damage. A delayed force measurement can be accurate and still be the wrong kind of evidence for the current control decision. During the blind interval after first touch, the robot may already be accumulating contact impulse while its force channel still reports zero.
 
-The research bet in this paper is that \emph{contact timing mismatch} should be a controller state. Let the physical contact age be the time since the contact event actually occurred, and let the observation age be the time since the controller's delayed evidence indicates contact. The difference between these quantities, denoted $\ctm$, is the hidden variable that explains why an otherwise stable force controller can push too hard during the blind interval after first touch.
+This paper studies that narrow interval. The central claim is that first-contact latency should be represented as a \emph{contact-age mismatch}: the difference between the physical time since contact began and the time implied by the controller's delayed contact evidence. This is different from treating latency only as a phase lag in a continuous feedback loop. The timestamp of the force sample matters, but so does the side of the contact event to which the sample belongs.
 
-We propose a minimal contact-age invariant controller. It has three parts: estimate or infer the contact event time; advance stale force evidence through a local contact model using current proprioception; and phase the desired force ramp by inferred contact age. This is not claimed as a new impedance controller, a new Smith predictor, a passivity theorem, reinforcement learning, or a benchmark. Its purpose is to isolate a mechanism that prior clusters often leave implicit: the controller state must encode the mismatch between when contact physically began and when contact evidence says it began.
+We call the resulting controller interface contact-age invariant control (\caic{}). It has three pieces. First, maintain an estimate of contact-event time. Second, advance delayed force evidence through a local contact model using current-minus-delayed proprioception. Third, phase the desired force by inferred contact age rather than wall-clock time or delayed observation age. None of these components is individually exotic. Force prediction, impedance control, Smith-style delay compensation, and hybrid contact control all have long histories. The paper's contribution is the explicit event-age coordinate system and the experimental accounting that shows when it does, and does not, matter.
 
-The contribution is intentionally scoped.
+The original short version of this paper was vulnerable to a hostile reading: force advancement alone removed most latency sensitivity in the one-dimensional model, so perhaps contact-age language was cosmetic. We therefore expanded the evidence in three directions. The first direction is stronger baselines: tuned cautious control, low-pass delayed feedback, latency-aware gain scheduling, Smith-style force prediction, one-step model predictive control, and adaptive windowed force advancement. The second direction is broader stress: larger latency ranges, model mismatch, contact-event estimator errors, soft-to-hard and hard-to-soft profiles, deadband, force caps, negative controls, and 180 seeded plant/profile configurations. The third direction is claim auditing: every reported success is paired with a condition that breaks or narrows it.
+
+The result is more interesting than a simple win. \caic{} is dramatically safer than delayed force feedback and cautious delayed feedback under latency. It is competitive with Smith-style prediction because both share the same local force-advance mechanism. A one-step MPC baseline has the lowest mean peak force in the large stress suite, but it often pays by under-reaching the desired final force. Event timing is the Achilles' heel: if contact-event estimates are missed or delayed until the force edge arrives, \caic{} can fail badly. Hard-to-soft contact profiles also expose an important boundary because the local linear model can overestimate how much resistance remains after a compliance transition.
+
+The contribution is therefore not a universal controller. It is a controller-state argument:
 \begin{itemize}
-    \item We identify a field assumption: delayed contact evidence remains semantically aligned with the current contact mode.
-    \item We give a small algebraic claim: in a known linear contact mode, delayed force can be advanced exactly using current-minus-delayed proprioception.
-    \item We provide runnable evidence in a one-dimensional contact task, including ablations that separate force advancement from contact-age target phasing and a 30-seed randomized stress test.
-    \item We mark the strongest limitations: no hardware, no global contact-mode proof, no claim under arbitrary frictional contact, and only abstract-level automated literature coverage beyond the closest cited works.
+    \item delayed contact evidence should be indexed by contact-event age, not only by sample timestamp;
+    \item local force prediction is semantically valid only within an inferred contact mode;
+    \item event timing errors should be reported as first-class failure modes, not hidden inside delayed-feedback performance;
+    \item strong baselines can match or exceed \caic{} on some scalar metrics, so the supported novelty is the interface and failure audit rather than unconditional performance dominance.
 \end{itemize}
 
 \section{Related Work And Hostile Prior Art}
 
-\paragraph{Force, impedance, and hybrid contact control.}
-Classical force and compliance control already establish much of the surface area of this problem. Hybrid position/force control separates constrained and unconstrained directions \citep{raibert1981hybrid}, compliance and force control regulate interaction with constrained environments \citep{mason1981compliance}, and impedance control shapes the apparent endpoint dynamics \citep{hogan1985impedance}. Cooperative and multi-arm variants extend these ideas to object-level impedance and constrained manipulation \citep{schneider1992object,yoshikawa1993coordinated}. Modern contact-rich manipulation and force-control learning papers show that force regulation remains central in data-driven systems \citep{beltran2020learning,suomalainen2022survey}. These works make compliant force regulation non-novel. Our boundary is narrower: the force objective should be indexed by inferred contact age when contact evidence is delayed.
+\paragraph{Force, compliance, impedance, and hybrid control.}
+The surface area of this problem is old. Hybrid position/force control separates constrained and unconstrained directions \citep{raibert1981hybrid}. Compliance control and force control regulate interaction with constrained environments \citep{mason1981compliance}. Impedance control shapes the apparent endpoint dynamics \citep{hogan1985impedance}. Cooperative and multi-arm variants extend these ideas to object-level impedance and constrained manipulation \citep{schneider1992object,yoshikawa1993coordinated}. Modern surveys and data-driven systems show that force regulation remains central in contact-rich manipulation \citep{beltran2020learning,suomalainen2022survey}. This prior art makes broad force-control novelty untenable. The present paper does not propose a new impedance law. It asks when the force objective should be indexed by inferred contact age.
 
-\paragraph{Delay, passivity, and teleoperation.}
-Time-delay control and teleoperation have a mature literature. Smith predictors compensate known dead time in continuous processes \citep{smith1957closer}. Bilateral teleoperation under communication delay uses passivity, scattering, or layered passivity/transparency methods to avoid unstable energy injection \citep{anderson1989bilateral,niemeyer1991stable,stramigioli2005sampled,franken2011bilateral}. These works are the closest hostile cluster because they make generic delay compensation and stable delayed force channels non-novel. The distinction is that first contact is a hybrid semantic event. A stable delayed channel can still report a pre-contact force sample while the robot is already accumulating contact impulse.
+\paragraph{Delay compensation and passivity.}
+Smith predictors compensate known process dead time \citep{smith1957closer}. Bilateral teleoperation under delay has a mature passivity literature, including scattering, wave variables, and layered passivity/transparency methods \citep{anderson1989bilateral,niemeyer1991stable,stramigioli2005sampled,franken2011bilateral}. This is the closest hostile cluster. It makes generic delay compensation and stable delayed force channels non-novel. Our distinction is not that delayed systems have never been stabilized. It is that first contact creates a semantic discontinuity: a stable delayed channel can still report a pre-contact sample while the current robot state is already post-contact.
 
-\paragraph{Planning and learning through contact.}
-Trajectory optimization through rigid contact \citep{posa2013direct} and contact-rich policy learning \citep{levine2015learning} model or learn the mechanics of intermittent contact. They make the idea of using a contact model non-novel. The present work does not add a bigger model or a reinforcement learner. It asks what state variable the controller should expose when contact observation latency changes without changing geometry or dynamics.
+\paragraph{Contact-rich planning and learning.}
+Trajectory optimization through rigid contact \citep{posa2013direct} and contact-rich policy learning \citep{levine2015learning} model intermittent contact at larger scale. Learned policies increasingly use tactile and force channels, including force-conditioned grasp data \citep{xie2024just}, slow-fast visual-tactile policy learning \citep{xue2025reactive}, and force-guided tactile foresight \citep{zang2026tacforesight}. These works make contact modeling and force/tactile feedback non-novel. The present paper is deliberately smaller: before learning a rich policy, a controller should expose whether the evidence it consumes belongs to the present contact age.
 
-\paragraph{Recent force and tactile policies.}
-Recent manipulation systems increasingly add force or tactile streams to learned policies, data collection, or predictive tactile models. Examples include force-conditioned grasp-policy data \citep{xie2024just}, slow-fast visual-tactile policy learning with high-frequency tactile feedback \citep{xue2025reactive}, and force-guided tactile foresight for contact-rich manipulation \citep{zang2026tacforesight}. These papers are hostile to any broad claim that force/tactile feedback for contact-rich manipulation is new. Our boundary is narrower and more classical: before learning a rich policy, a controller may need to represent whether the force/tactile evidence belongs to the current contact age.
+\paragraph{Why another local simulator can still be useful.}
+A one-dimensional simulator cannot prove hardware readiness. Its value is diagnostic. By holding the mechanics small, we can enumerate baselines, event-estimator failures, model mismatch, and profile shifts that are usually buried in larger systems. The paper should be read as a mechanism audit: it isolates the contact-age coordinate, identifies what stronger predictors already solve, and shows exactly where the abstraction breaks.
 
 \section{Problem Setup}
 
-Consider a one-dimensional robot endpoint with position $\qpos_t$, velocity $\qvel_t$, and unilateral contact at $\qpos_t > 0$. In contact, force follows a local Kelvin--Voigt model
+We model a robot endpoint approaching a unilateral surface. Position $\qpos_t$ is negative in free space and positive in contact. Velocity is $\qvel_t$. In the nominal local mode, force follows a Kelvin--Voigt relation
 \begin{equation}
     \force_t = k \qpos_t + c \qvel_t,
     \quad \qpos_t > 0,
 \end{equation}
-with stiffness $k$ and damping $c$. Force or tactile evidence is observed after latency $\lat$, while proprioceptive position and velocity are assumed timestamped and effectively current at the control rate. This assumption is strong, but common on real robots where joint encoders are much faster and closer to the servo loop than tactile image processing or external force perception.
+with force clipped at zero outside contact. Force or tactile evidence is delayed by $\lat$, while proprioception is assumed available at servo rate. This assumption is not universal, but it matches many robots where joint encoders are closer to the controller than processed tactile images or external force perception.
 
-The controller's hidden timing variable is
+The contact event occurs at time $t_c$. The physical contact age at time $t$ is
 \begin{equation}
-    \ctm_t = (t - \hat t_c) - (t - \lat - \hat t_c^{obs}),
+    \tau_c(t) = t - t_c.
 \end{equation}
-where $\hat t_c$ is the inferred physical contact time and $\hat t_c^{obs}$ is the contact time implied by delayed evidence. In the simple simulator, $\hat t_c$ is detected from the known contact guard. In less ideal systems it could be estimated from expected geometry, proprioceptive residuals, or a delayed force edge corrected by an online latency estimate. This paper studies the local mechanism, not a full estimator.
+The observation stream implies a different contact age because the force edge or tactile edge arrives late. We define contact timing mismatch as
+\begin{equation}
+    \ctm_t =
+    (t-\hat t_c) -
+    (t-\lat-\hat t_c^{obs}),
+\end{equation}
+where $\hat t_c$ is the controller's physical contact-time estimate and $\hat t_c^{obs}$ is the contact time implied by delayed evidence. In the easiest case, geometry or proprioception gives $\hat t_c$ before the delayed force edge arrives. In the hardest case, the controller only learns about contact when the force edge appears, which defeats the purpose of preemptive event-age control.
 
-\section{Contact-Age Invariant Control}
+\paragraph{Metrics.}
+The experiments report peak post-contact force, overshoot above the 8 N target, impulse over the first 250 ms, final force error, high-force dwell time above 12 N, no-contact rate, and a combined unsafe-or-missed-contact rate. The no-contact metric matters because a cautious controller can make peak force look good by failing to reach contact. We therefore treat both excessive force and missed contact as failures in the final leaderboards.
+
+\section{Controller Interface}
+
+\subsection{Force Advancement}
 
 At time $t$, the controller receives delayed force $\force_{t-\lat}$ and delayed proprioceptive state $(\qpos_{t-\lat},\qvel_{t-\lat})$, but also has current proprioception $(\qpos_t,\qvel_t)$. If both samples are in the same linear contact mode, the current force is reconstructed by
 \begin{equation}
@@ -84,22 +99,29 @@ At time $t$, the controller receives delayed force $\force_{t-\lat}$ and delayed
     + \hat c(\qvel_t-\qvel_{t-\lat}).
     \label{eq:advance}
 \end{equation}
-When the delayed sample is pre-contact but current proprioception indicates contact, the controller advances from the inferred contact event rather than waiting for the delayed force edge:
+When the delayed sample is pre-contact but current proprioception indicates contact, the controller advances from the inferred current contact state:
 \begin{equation}
-    \hat \force_t = \max(0, \hat k \qpos_t + \hat c \qvel_t).
+    \hat \force_t = \max(0,\hat k \qpos_t+\hat c \qvel_t).
 \end{equation}
-The target force is phased by contact age $\tau_c = t-\hat t_c$:
-\begin{equation}
-    \force_t^\star = \min(\force_{\max}, r \tau_c),
-\end{equation}
-where $r$ is a force ramp rate. The commanded velocity is a clipped proportional force action,
-\begin{equation}
-    u_t = \mathrm{clip}\left(g(\force_t^\star - \hat \force_t), -u_{\max}, u_{\max}\right).
-\end{equation}
-The key difference from delayed-force feedback is not the proportional law; it is the state used to evaluate the law. Delayed feedback compares the current objective to stale force. Contact-age control compares a contact-age objective to an advanced estimate of current force.
+This is the same mathematical ingredient that makes Smith-style prediction strong in the experiments. The paper does not hide that fact. The distinction is that \caic{} treats the prediction as valid only relative to a contact-event estimate and uses the event age to phase the force objective.
 
-\paragraph{Formal claim and boundary.}
-If $\hat k=k$, $\hat c=c$, both delayed and current samples are in the same unclipped Kelvin--Voigt contact mode, and proprioception is exact, then Eq.~\ref{eq:advance} gives $\hat \force_t=\force_t$ for any constant latency $\lat$. The proof is substitution:
+\subsection{Contact-Age Target Phasing}
+
+The desired force is not applied as a step at wall-clock time. It is phased by inferred contact age:
+\begin{equation}
+    \force_t^\star=\min(\force_{\max}, r(t-\hat t_c)),
+\end{equation}
+where $r$ is a ramp rate. The velocity command is a clipped proportional force action:
+\begin{equation}
+    u_t =
+    \mathrm{clip}\left(g(\force_t^\star-\hat\force_t),
+    -u_{\max}, u_{\max}\right).
+\end{equation}
+This law is intentionally simple. A more sophisticated controller can be inserted behind the same event-age interface. The interface claim is that the controller should know whether its force target and force evidence refer to the same contact age.
+
+\subsection{Formal Same-Mode Claim}
+
+If $\hat k=k$, $\hat c=c$, both delayed and current samples are in the same unclipped Kelvin--Voigt contact mode, and proprioception is exact, Eq.~\ref{eq:advance} gives $\hat\force_t=\force_t$ for any constant latency $\lat$:
 \begin{align}
 \hat \force_t
 &= (k\qpos_{t-\lat}+c\qvel_{t-\lat})
@@ -108,68 +130,513 @@ If $\hat k=k$, $\hat c=c$, both delayed and current samples are in the same uncl
 &= k\qpos_t+c\qvel_t
  = \force_t .
 \end{align}
-This is the whole formal guarantee. It is not a global hybrid-system theorem. Our claim checker verifies the same-mode residual to floating-point tolerance and finds counterexamples when a delayed pre-contact sample is naively advanced across a mode switch.
+The repository's claim checker evaluates 10,000 same-mode samples and reports maximum residual $7.1\times10^{-15}$ N. It also finds a mode-switch counterexample with 25.93 N residual and a 15\% stiffness/damping mismatch case with mean residual 1.28 N and max residual 3.86 N. The guarantee is therefore local and algebraic, not a global hybrid-system theorem.
 
-\section{Experiments}
+\section{Baselines}
 
-\paragraph{Simulator.}
-We use a minimal point endpoint approaching a rigid contact. The plant receives velocity commands through a first-order servo, contact force is Kelvin--Voigt, and the task is to reach an 8 N contact force. We sweep force/tactile sensing latency from 0 to 150 ms. Five controllers are compared: delayed force feedback; a delay-scaled cautious baseline that slows the blind approach as latency grows; force advancement without contact-age target phasing; contact-age target phasing without force advancement; and the full controller. All scripts are in the repository: \texttt{scripts/run\_experiments.py} produces the CSV, JSON, and figures; \texttt{scripts/verify\_claims.py} produces the formal audit and counterexamples.
+The expanded experiments compare the following controllers.
+
+\paragraph{Delayed force feedback.}
+The controller regulates the delayed force sample directly. It approaches at a fixed velocity until delayed force appears, then applies proportional force control.
+
+\paragraph{Tuned cautious feedback.}
+This baseline slows approach as latency increases. The cautious coefficient is selected on a training grid. This is a strong safety engineering baseline, but the final evaluation counts missed contact because excessive caution is not task success.
+
+\paragraph{Low-pass delayed feedback and latency gain scheduling.}
+These baselines filter or attenuate delayed force feedback. They test whether the result can be explained by smoother delayed control rather than event-age state.
+
+\paragraph{Smith-style predictor.}
+This baseline uses the same local force advancement as Eq.~\ref{eq:advance} but keeps a constant 8 N target. It is a hostile baseline: if it matches \caic{}, the paper cannot claim contact-age target phasing is the dominant source of invariance.
+
+\paragraph{One-step model predictive control.}
+This baseline searches a small velocity grid and chooses the command that minimizes one-step predicted force error plus a command penalty. It is intentionally strong in the toy model. Its weakness is visible in final force error: it often reduces peak force by under-reaching or being conservative.
+
+\paragraph{Adaptive windowed force advancement.}
+This baseline updates the stiffness estimate online from delayed contact samples. It tests whether adaptation to local stiffness makes explicit contact-age phasing unnecessary.
+
+\paragraph{Wrong-event negative control.}
+This controller deliberately starts the contact-age clock early. It tests whether event-age bookkeeping can be harmful when the event estimate is wrong.
+
+\begin{table}[t]
+    \centering
+    \caption{Tuned delayed-feedback baseline hyperparameters selected on the training grid before held-out evaluation. Higher cautious and gain-schedule values slow or attenuate the delayed controller more aggressively; the low-pass value is the filter update weight.}
+    \label{tab:tuned}
+    \input{tables/tuned_baselines.tex}
+\end{table}
+
+\section{Experimental Protocol}
+
+\paragraph{Implementation and resource discipline.}
+All expanded experiments are generated by \texttt{scripts/run\_full\_scale\_experiments.py}. The runner is RAM-light by construction. Each rollout is simulated sequentially, compact metrics are written to CSV immediately, and full trajectories are saved only for selected exemplars. The run produced 12,544 rollouts in 3,194 seconds. This is not a GPU-scale experiment, but it is a much stronger audit than the original 30-seed stress test.
+
+\paragraph{Suites.}
+The expanded suite contains:
+\begin{itemize}
+    \item 112 held-out nominal latency runs over 14 latency settings and 8 controllers;
+    \item 1,920 event-estimation runs over contact-edge, noisy guard, biased guard, dropout, and geometry-prior estimators;
+    \item 420 model-mismatch runs over stiffness and damping estimate scales;
+    \item 3,600 mode/profile shift runs over nominal, soft-to-hard, hard-to-soft, deadband, and force-cap profiles;
+    \item 6,480 large stress runs over 180 seeds, 6 latency settings, 6 controllers, and 3 profile families;
+    \item 12 negative-control runs.
+\end{itemize}
+The large stress suite randomizes stiffness, damping, servo time constant, initial gap, model estimates, profile family, and effective latency. The event-estimation suite isolates a different axis: it holds the controller family fixed and changes how contact time is inferred.
+
+\paragraph{Train and held-out split.}
+Only three delayed-feedback baselines are tuned: cautious feedback, low-pass delayed feedback, and latency gain scheduling. Their hyperparameters are selected on a small training grid over nominal, soft-to-hard, and deadband profiles. All headline plots and leaderboards use held-out grids or stress suites.
+
+\section{Results}
+
+\subsection{Nominal Latency Grid}
 
 \begin{figure}[t]
     \centering
+    \includegraphics[width=0.92\linewidth]{figures/full_scale_latency_baselines.png}
+    \caption{Held-out nominal latency grid. Crosses at zero mark runs where the tuned cautious controller fails to make contact, which is counted as a task miss rather than a safe success. Delayed force feedback scales badly with latency. Smith-style prediction, one-step MPC, adaptive windowed advancement, and \caic{} remain near the target in the nominal local model.}
+    \label{fig:full-latency}
+\end{figure}
+
+Figure~\ref{fig:full-latency} shows the first headline. Delayed force feedback reaches 111.90 N at 250 ms latency and has 92.9\% unsafe peaks above 12 N on the held-out latency grid. Low-pass delayed feedback behaves similarly. Latency gain scheduling reduces peak force but remains unsafe in 85.7\% of nominal latency runs. Tuned cautious feedback is mixed: it avoids some high-force impacts but misses contact at high latency, yielding an 85.7\% unsafe-or-missed rate.
+
+The predictive baselines are strong. Smith-style prediction remains at 9.04 N, one-step MPC at 8.90 N, adaptive windowed advancement at 8.48 N, and \caic{} at 8.48 N. This result forces a precise claim: in a known local contact mode, event-age control is not the only way to remove latency sensitivity. Local prediction is the main mechanism. The reason to keep contact age explicit is that it tells the controller when the local prediction is semantically authorized and how first-contact targets should be phased.
+
+\subsection{Original Ablation Still Matters}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.90\linewidth]{figures/mechanism_ablation.png}
+    \caption{Original mechanism ablation. Force advancement alone removes most latency sensitivity in the local simulator. Contact-age target phasing alone does not. The full method mainly reduces first-contact overshoot relative to force advancement.}
+    \label{fig:ablation}
+\end{figure}
+
+The old ablation is retained because it prevents overclaiming. Force advancement alone reaches 9.04 N max peak force in the original sweep, while the full controller reaches 8.48 N. Contact-age target phasing without force advancement fails like delayed force feedback. Therefore the paper does not claim that event-age phasing alone solves delayed contact. It claims that event-age state is the right interface around local prediction.
+
+\subsection{Large Sequential Stress Suite}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.92\linewidth]{figures/large_seed_stress_distribution.png}
+    \caption{Large sequential stress suite over 1,080 runs per main controller. The box plot hides outliers but the table reports maxima and failure rates. \caic{} and Smith-style prediction are close; one-step MPC has lower peak force but higher mean final force error.}
+    \label{fig:stress-dist}
+\end{figure}
+
+The large stress suite is the strongest positive evidence. Delayed force feedback has 66.79 N mean peak force, 169.14 N p95 peak force, and 85.4\% unsafe peaks. Tuned cautious feedback reduces some impacts but misses contact in 36.2\% of large stress runs and has a 79.4\% unsafe-or-missed rate. Smith-style prediction has 9.40 N mean peak force and 3.3\% unsafe peaks. \caic{} has 9.22 N mean peak force and 3.1\% unsafe peaks. One-step MPC has the lowest mean peak force, 5.82 N, and 2.8\% unsafe peaks, but it has 3.50 N mean final force error versus 0.23 N for \caic{} and 0.24 N for Smith-style prediction. In other words, the MPC baseline often buys safety by under-reaching the desired force in this simplified setting.
+
+This is the paper's best evidence for practical relevance. \caic{} is not merely a nominal algebraic trick; it survives randomized stiffness, damping, servo lag, initial gap, latency noise, and three contact-profile families in most runs. But the evidence also says a strong predictive controller is a serious competitor. The correct interpretation is that \caic{} is a safe event-age interface around prediction, not a replacement for predictive control.
+
+\subsection{Safety-Tracking Tradeoff}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.82\linewidth]{figures/stress_pareto_tradeoff.png}
+    \caption{Large stress-suite tradeoff between p95 peak force and mean final force error. Marker area grows with unsafe-or-missed rate. One-step MPC has the lowest p95 peak force but much higher final-force error than \caic{} and Smith-style prediction.}
+    \label{fig:stress-pareto}
+\end{figure}
+
+Figure~\ref{fig:stress-pareto} makes the main tradeoff visible. A single peak-force metric would make one-step MPC look best: its p95 peak is 10.72 N in the large stress suite, compared with 11.62 N for \caic{} and 11.86 N for Smith-style prediction. But the same MPC point has 3.50 N mean final-force error, roughly fifteen times the \caic{} error of 0.23 N. The controller is often safe because it is willing to under-drive the contact.
+
+This matters for the claim. If the task is only ``avoid force above 12 N,'' a cautious or MPC-like controller can win by failing to reach the intended force. If the task is ``reach a useful contact force without delayed first-contact overshoot,'' then the metric must include both peak force and final error. \caic{} is not the Pareto optimum in every scalarization, but it occupies the intended region: low p95 peak, low miss rate, and low final-force error. Appendix~G reports the full quantile table so that this interpretation is auditable rather than hidden in the plot.
+
+\subsection{Contact-Event Estimation Is The Bottleneck}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.96\linewidth]{figures/event_estimator_sensitivity.png}
+    \caption{Event-estimator sensitivity. If contact time is known from a guard or geometry prior, \caic{} remains near the target. If the controller waits for the delayed force edge, every run exceeds the 12 N threshold. If 20\% of event detections are dropped, most runs remain safe but rare missed events produce severe peaks.}
+    \label{fig:event}
+\end{figure}
+
+Figure~\ref{fig:event} is the strongest negative result. With perfect guard timing, \caic{} stays at 8.48 N. With modest noisy guard timing, mean peaks remain below 8.6 N. Geometry-prior estimates that are 2 mm early or late remain below 9.0 N. But delayed force-edge contact detection is catastrophic: mean peak force is 28.48 N, p95 is 47.81 N, and every trial exceeds the 12 N threshold. The reason is straightforward: waiting for the delayed force edge forfeits the blind interval that contact-age control was meant to cover.
+
+Event dropout creates a different failure. With 20\% missed event detections and 4 ms jitter, the mean peak force rises to 50.65 N and max peak reaches 261.35 N, while the unsafe rate is 16.7\%. The mean is dominated by rare missed events. This is exactly why event timing must be reported as a first-class metric. A controller can look safe under average noise and still have unacceptable tail risk if the contact event is occasionally missed.
+
+\subsection{Model Mismatch}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.78\linewidth]{figures/model_mismatch_surface.png}
+    \caption{Model-estimate sensitivity for \caic{} at 180 ms latency. Underestimating stiffness is dangerous because the controller underpredicts force and continues pushing. Overestimating stiffness is conservative in this local model.}
+    \label{fig:mismatch}
+\end{figure}
+
+Figure~\ref{fig:mismatch} shows the asymmetric effect of model mismatch. Stiffness underestimation is worse than stiffness overestimation because the controller underpredicts current force and continues pushing. Across the full mismatch grid, \caic{} has 9.66 N mean peak force, 14.72 N p95 peak force, and 11.4\% unsafe peaks. Smith-style prediction has 10.00 N mean peak force and 22.9\% unsafe peaks. The difference is modest but consistent with the target-phasing layer reducing overshoot when the predictor is imperfect.
+
+The adaptive windowed baseline does not dominate. It has similar mean peak force to \caic{} in the mismatch grid but fails badly in some profile-shift settings. The local adaptation rule can chase biased delayed samples and become overconfident. This is a useful caution for learned or adaptive variants: estimating stiffness online is not enough unless the estimator also knows which contact mode generated the sample.
+
+\subsection{Mode And Contact-Profile Shifts}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.88\linewidth]{figures/mode_switch_failure_map.png}
+    \caption{Failure rate by controller and contact-profile family. The hard-to-soft profile is the sharpest boundary for \caic{} because the local model overestimates resistance after the compliance transition.}
+    \label{fig:mode}
+\end{figure}
+
+The mode/profile suite introduces soft-to-hard, hard-to-soft, deadband, force-cap, and nominal profiles. Delayed force feedback is unsafe in 80.0\% of runs. Tuned cautious feedback has a 69.7\% unsafe-or-missed rate. \caic{} has a 15.0\% unsafe rate, lower than Smith-style prediction's 19.8\% and wrong-event control's 20.0\%, but not zero.
+
+The failure map in Figure~\ref{fig:mode} localizes the problem. \caic{} has no unsafe peaks in nominal, deadband, force-cap, or soft-to-hard profiles, but it fails in 75.0\% of hard-to-soft profile runs. Hard-to-soft transitions violate the implicit assumption that local stiffness remains at least as high as expected after penetration grows. The controller's local model can predict too much resistance, choose a command that is safe for the wrong profile, and then overshoot when the surface becomes softer. This is not an implementation bug; it is the intended adversarial boundary.
+
+\subsection{Negative Controls}
+
+The negative controls serve two purposes. First, zero-latency and predictor baselines verify that \caic{} is not inventing a benefit when there is no delayed contact evidence. Second, wrong-event control verifies that contact-age bookkeeping is not automatically helpful. Starting the contact-age clock too early produces different target phasing and slightly higher nominal peaks. In the mode suite, wrong-event control has a 20.0\% unsafe rate versus 15.0\% for \caic{}. The difference is not enormous, but it confirms that event timing is not cosmetic.
+
+\begin{table}[p]
+    \centering
+    \scriptsize
+    \caption{Full-scale leaderboard. Unsafe is the rate of peak force above 12 N. Unsafe/miss also counts no-contact runs as failures. Mean and p95 peak are in Newtons. The table is generated from streamed CSV outputs.}
+    \label{tab:leaderboard}
+    \resizebox{\linewidth}{!}{\input{tables/full_scale_leaderboard.tex}}
+\end{table}
+
+\section{Claim Audit}
+
+The expanded evidence supports four claims.
+
+\paragraph{Claim 1: delayed first-contact evidence can be semantically stale.}
+Delayed force feedback scales poorly with latency in the nominal grid, the original sweep, and the large stress suite. Its failure is not merely final instability; it accumulates damaging first-contact peak force before the delayed edge arrives.
+
+\paragraph{Claim 2: local force advancement removes most latency sensitivity in a fixed mode.}
+The formal same-mode check and Smith-style baseline both support this. This claim is classical in spirit and should not be oversold as a new controller theory.
+
+\paragraph{Claim 3: contact-age state is useful as an interface around prediction.}
+\caic{} matches the best local predictor in nominal settings, is slightly safer than Smith-style prediction under mismatch and mode/profile shifts, and makes event timing explicit enough to audit. The support is empirical and local.
+
+\paragraph{Claim 4: event timing and mode validity are the real boundaries.}
+Delayed force-edge detection fails in every event-estimation trial. Event dropout creates rare severe peaks. Hard-to-soft profile shifts cause most \caic{} failures. These boundaries are now part of the contribution, not buried in limitations.
+
+\section{Limitations}
+
+This remains a simulation paper. It has no hardware, no learned tactile timestamp estimator, no multi-DOF contact geometry, and no frictional sticking/sliding model. The mode profiles are one-dimensional proxies, not physical surfaces. The event-estimation study is synthetic. The one-step MPC baseline is simplified but still strong enough to prevent any dominance claim. The large stress suite is sequential and RAM-light, but it is not a substitute for real-robot validation.
+
+The strongest limitation is observability of contact time. \caic{} is useful only when contact can be inferred before or during the blind interval. If the system only learns about contact when the delayed force edge arrives, the controller has already lost the interval where it matters most. The second limitation is local model validity. Force advancement is exact only within a contact mode. Hard-to-soft transitions and stiffness underestimation show how the method fails when the local model is wrong in the unsafe direction.
+
+These limitations change the target venue story. The paper is now much stronger than a short mechanism note because it includes thousands of stress runs, strong baselines, and failure taxonomies. It is still not a hardware-ready robotics result. Its honest final form is a full-scale simulation and mechanism paper whose value is the contact-age abstraction and the reproducible adversarial audit.
+
+\section{Reproducibility}
+
+The original experiments are reproduced with:
+\begin{quote}
+\texttt{python scripts/run\_experiments.py}
+\end{quote}
+and the formal claim checks with:
+\begin{quote}
+\texttt{python scripts/verify\_claims.py}.
+\end{quote}
+The full-scale experiment suite is reproduced with:
+\begin{quote}
+\texttt{python scripts/run\_full\_scale\_experiments.py}.
+\end{quote}
+The full-scale runner writes CSV files under \texttt{results/full\_scale/}, figures under \texttt{results/full\_scale/figures/}, paper-ready copies under \texttt{paper/figures/}, and generated table fragments under \texttt{paper/tables/}. It streams rows to disk and saves full trajectories only for selected examples. On the current machine, the full run completed 12,544 rollouts in 3,194 seconds.
+
+\section{Conclusion}
+
+Delayed contact evidence is dangerous because it can be numerically correct for the past and semantically wrong for the present contact mode. Contact-age invariant control makes that mismatch explicit. The expanded experiments show that this interface is valuable but not magical. Local prediction carries most of the nominal latency benefit; one-step MPC is a strong competitor; event-estimator failures can dominate all other effects; and mode changes expose the boundary of the local model. The final contribution is a contact-event coordinate system plus a reproducible stress audit that tells a robot controller when delayed contact evidence can be advanced, when force targets should be phased by contact age, and when the assumptions have failed.
+
+\clearpage
+\appendix
+
+\section{Appendix A: Detailed Experimental Suites}
+
+\paragraph{Nominal latency grid.}
+The nominal grid evaluates 14 latency settings from 0 to 250 ms. The grid includes delayed force feedback, tuned cautious feedback, low-pass delayed feedback, latency gain scheduling, Smith-style prediction, one-step MPC, adaptive windowed advancement, and \caic{}. This suite answers whether a controller can handle pure sensing latency without plant/profile shifts.
+
+\paragraph{Event-estimation grid.}
+The event grid fixes the controller family to \caic{} and varies the contact-time estimator. Perfect guard timing represents an oracle geometry or proprioceptive guard. Delayed force-edge timing represents the common case where contact is recognized only after the delayed force sample appears. Noisy guard timing adds millisecond-scale timestamp error. Geometry-prior timing starts the event slightly before or after actual contact. Dropout randomly suppresses the event estimate.
+
+\paragraph{Model-mismatch grid.}
+The mismatch grid sweeps stiffness estimate scales from 0.55 to 1.60 and damping estimate scales from 0.50 to 1.40 over five latencies. It compares Smith-style prediction, adaptive windowed advancement, and \caic{}. The main finding is asymmetric: stiffness underestimation is unsafe, while overestimation is conservative in this local model.
+
+\paragraph{Mode/profile grid.}
+The mode grid evaluates nominal, soft-to-hard, hard-to-soft, deadband, and force-cap contact profiles over 30 seeds and four latencies. The hard-to-soft profile is the clearest falsifier for the local stiffness assumption. A real robot analogue would be a surface or object whose effective compliance increases after initial contact.
+
+\paragraph{Large stress grid.}
+The large stress grid uses 180 seeds, six latency settings, six controllers, and three profile families. Each seed samples stiffness, damping, servo lag, initial gap, model estimates, and effective latency. It is large enough to expose tail events while remaining light enough to run sequentially on a laptop-class machine.
+
+\section{Appendix B: Controller Equations}
+
+\paragraph{Delayed feedback.}
+Delayed feedback computes
+\begin{equation}
+u_t = g(\force^\star-\force_{t-\lat})
+\end{equation}
+after contact is observed. Before contact is observed it approaches at a fixed velocity. Its failure is that $\force_{t-\lat}$ can remain zero after physical contact has begun.
+
+\paragraph{Cautious feedback.}
+The cautious baseline reduces approach speed as latency grows:
+\begin{equation}
+v_{\mathrm{approach}}(\lat)=
+\frac{v_0}{1+\gamma\lat}.
+\end{equation}
+The tuned value is $\gamma=40$. This can reduce impact, but high latency often becomes no-contact behavior rather than successful regulation.
+
+\paragraph{Gain scheduling.}
+Latency gain scheduling attenuates both the control gain and approach speed as functions of $\lat$. The selected attenuation parameter is 28. It still fails because it uses delayed force evidence as the state.
+
+\paragraph{Low-pass delayed feedback.}
+Low-pass feedback applies
+\begin{equation}
+\bar\force_t=\alpha\force_{t-\lat}+(1-\alpha)\bar\force_{t-1}
+\end{equation}
+with $\alpha=0.70$. This smooths delayed evidence but cannot make pre-contact evidence current.
+
+\paragraph{Smith-style prediction.}
+Smith-style prediction uses Eq.~\ref{eq:advance} but applies a constant target. It is the cleanest hostile baseline and is nearly identical to \caic{} in the nominal local model.
+
+\paragraph{One-step MPC.}
+One-step MPC searches a small velocity grid and chooses the command minimizing predicted next-step force error plus a command penalty. It is allowed to be strong, but its lower peak force comes with higher final force error in the large stress suite.
+
+\paragraph{Adaptive windowed advancement.}
+The adaptive baseline updates the stiffness estimate using delayed contact samples and an exponentially weighted rule. Its failure cases show that online identification can be misled by samples from shifted contact profiles.
+
+\section{Appendix C: Why Page Count Increased}
+
+The paper grew because the evidence grew. The new manuscript includes a full baseline suite, event-estimation study, model-mismatch study, mode/profile shift study, large stress suite, negative controls, generated tables, and reproducibility details. The additional pages are not padding; they report experiments that either strengthen or falsify the original mechanism claim.
+
+\clearpage
+\section{Appendix D: Retained Original Evidence}
+
+The expanded paper does not discard the original experiment suite. The original suite is still useful because it is small enough to inspect manually and because it isolates the mechanism before the larger stress tests add many interacting factors. This appendix records how the original evidence relates to the full-scale results.
+
+\begin{figure}[htbp]
+    \centering
     \includegraphics[width=0.86\linewidth]{figures/peak_force_vs_latency.png}
-    \caption{Peak first-contact force as force/tactile sensing latency increases. Delayed feedback accumulates contact impulse before the force edge arrives. The contact-age controller remains nearly latency invariant in this local model because it advances delayed force evidence and phases the target by inferred contact age.}
-    \label{fig:peak}
+    \caption{Original deterministic latency sweep. The delayed force controller becomes increasingly unsafe as latency grows, while the full controller remains near the target under the nominal local model. This result is now treated as a sanity check rather than the whole evidence base.}
+    \label{fig:orig-peak}
+\end{figure}
+
+The original deterministic sweep used 10 latency values from 0 to 150 ms and five controllers. Its main value is interpretability. Delayed force feedback rises monotonically from near-target behavior at zero configured latency to severe impact at high latency. The delay-scaled cautious baseline lowers the slope but still accumulates substantial force. The full controller is flat because the same-mode force advance exactly reconstructs current force in the nominal local model. The expanded held-out grid in Figure~\ref{fig:full-latency} extends this pattern to 250 ms and adds stronger predictive baselines.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.86\linewidth]{figures/force_trajectories_80ms.png}
+    \caption{Representative force trajectories at 80 ms sensing latency. Delayed feedback overshoots before the force edge arrives. Cautious feedback slows the approach but still lags. \caic{} begins regulating immediately after inferred contact.}
+    \label{fig:traj80}
+\end{figure}
+
+The trajectory view is important because scalar peak force can hide mechanism. The delayed controller is not merely high in steady state; it is late. The force stays unregulated through the blind interval, then the controller reacts after the delayed edge arrives. \caic{} avoids that transient because the contact event opens a new coordinate system: force target and predicted force are both evaluated at inferred contact age.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.86\linewidth]{figures/seeded_stress_peak_force.png}
+    \caption{Original 30-seed stress test. The expanded 6,480-run stress suite keeps the same spirit but adds more seeds, profile families, stronger baselines, and explicit no-contact accounting.}
+    \label{fig:orig-stress}
+\end{figure}
+
+The original 30-seed stress suite randomized stiffness, damping, servo time constant, initial gap, model estimates, and effective latency. It already showed that \caic{} had small mean peak force at 150 ms, but it did not include one-step MPC, adaptive windowed prediction, contact-profile shifts, or event-estimator failures. The full-scale stress suite should therefore be seen as a strict superset: it preserves the old positive result while adding stronger ways to falsify it.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.86\linewidth]{figures/stiffness_mismatch_ablation.png}
+    \caption{Original stiffness-mismatch ablation. The full model-mismatch grid generalizes this plot by crossing stiffness and damping estimates and comparing Smith-style prediction, adaptive advancement, and \caic{}.}
+    \label{fig:orig-mismatch}
+\end{figure}
+
+The original mismatch plot already hinted at the asymmetry that appears in Figure~\ref{fig:mismatch}: underestimating stiffness is worse than overestimating it. If the controller thinks the surface is softer than it is, it underpredicts force and continues pushing. If it thinks the surface is stiffer than it is, it becomes conservative. This asymmetry is not a proof of safety, but it gives a useful design rule for conservative model estimation.
+
+\clearpage
+\section{Appendix E: Event-Estimator Breakdown}
+
+Table-like aggregate plots can obscure which event-estimator failures matter. The event suite separates eight estimator conditions:
+\begin{itemize}
+    \item perfect guard timing;
+    \item delayed force-edge timing;
+    \item noisy guard timing with 2 ms standard deviation;
+    \item noisy guard timing with an 8 ms positive bias and 4 ms jitter;
+    \item noisy guard timing with a 6 ms negative bias and 4 ms jitter;
+    \item noisy guard timing with 20\% event dropout;
+    \item geometry-prior timing 2 mm early;
+    \item geometry-prior timing 2 mm late.
+\end{itemize}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.88\linewidth]{figures/event_latency_failure_heatmap.png}
+    \caption{Event-estimator failure rate by latency. Failure remains zero for guard, modest noisy-guard, and geometry-prior timing in this local mode, but delayed force-edge timing fails at every tested latency and dropped events create a tail-risk band.}
+    \label{fig:event-heatmap}
 \end{figure}
 
 \begin{table}[t]
     \centering
-    \caption{Latency sweep summary. Slopes are peak-force change per second of sensing latency. Lower peak and lower slope are better.}
-    \label{tab:summary}
-    \begin{tabular}{lccc}
-        \toprule
-        Controller & Max peak (N) & Mean overshoot (N) & Peak slope (N/s) \\
-        \midrule
-        Delayed force feedback & 70.31 & 24.71 & 410.13 \\
-        Delay-scaled cautious & 33.89 & 11.64 & 169.74 \\
-        Force advancement only & 9.04 & 1.04 & 0.00 \\
-        Contact-age target only & 70.32 & 23.74 & 427.59 \\
-        Contact-age invariant & 8.48 & 0.48 & $<10^{-12}$ \\
-        \bottomrule
-    \end{tabular}
+    \scriptsize
+    \caption{Event-estimator boundary table. Mean, p95, and max are peak contact force in Newtons. Unsafe is peak force above 12 N.}
+    \label{tab:event-boundary}
+    \resizebox{\linewidth}{!}{\input{tables/event_boundary_table.tex}}
 \end{table}
 
-Figure~\ref{fig:peak} and Table~\ref{tab:summary} show the main result. The delayed controller is acceptable near zero latency but becomes unsafe as the blind interval grows. The cautious controller reduces the slope but still lets peak force rise with latency and sacrifices final regulation at larger delays. The contact-age controller's peak force is constant in the ideal local model because the controller's force estimate is no longer indexed by delayed observation time.
+The benign cases are informative. Perfect guard timing gives 8.48 N mean peak force. A 2 mm late geometry prior gives 8.19 N because it delays the target ramp slightly and is conservative. A 2 mm early geometry prior gives 8.96 N, still safe in the local model. Millisecond-scale noisy guards stay below 8.9 N. These cases show that \caic{} does not require impossible timestamp precision in the nominal contact mode.
 
-\begin{figure}[t]
+The catastrophic cases are more important. Delayed force-edge timing gives 28.48 N mean peak force, 47.81 N p95, and 100\% unsafe peaks above 12 N. This is not a random hyperparameter failure. It is the exact condition the paper warns against: if the controller waits for delayed contact evidence before starting the contact-age clock, it cannot protect the blind interval. Event dropout is rarer but more severe. With 20\% dropped events, most runs remain near target, but missed events produce peaks up to 261.35 N. This tail risk is why event detection must be evaluated separately from force regulation.
+
+\paragraph{Latency interaction.}
+Figure~\ref{fig:event-heatmap} shows that the bad event models are not merely bad at the largest latency. Delayed force-edge timing fails across the latency range because the controller starts the contact-age clock only after the delayed force sample has crossed the edge. Increasing latency increases the blind interval, but the semantic error exists even at moderate delay. Dropped events have a different shape: when the event is not dropped, the run looks like a guarded run; when it is dropped, the controller has no valid event-age origin and tail force can explode. This mixture distribution is why the mean and p95 must be read together with max force.
+
+\paragraph{Design implication.}
+The controller should expose contact-event confidence as a safety variable. If the event estimate is missing, delayed, or contradictory, the controller should enter a conservative guarded mode rather than pretending the delayed force sample is current. The current implementation does not add that higher-level guard; it deliberately reports the failure.
+
+\section{Appendix F: Contact-Profile Failure Taxonomy}
+
+The profile-shift suite is a proxy for contact-mode changes that a one-dimensional model can represent. It is not a realistic mechanics engine, but it gives a compact taxonomy of failure.
+
+\begin{table}[t]
     \centering
-    \includegraphics[width=0.86\linewidth]{figures/mechanism_ablation.png}
-    \caption{Mechanism ablation. Force advancement alone removes most latency sensitivity in this local simulator, while contact-age target phasing alone does not. The full controller gives the lowest first-contact peak but the ablation narrows the novelty claim: event-age phasing is a safety shaping layer on top of local force advancement, not the sole source of invariance.}
-    \label{fig:ablation}
-\end{figure}
+    \scriptsize
+    \caption{Profile-family breakdown for the mode/profile suite. Unsafe is peak force above 12 N. CAIC p95 and max are peak force in Newtons.}
+    \label{tab:mode-profile}
+    \resizebox{\linewidth}{!}{\input{tables/mode_profile_table.tex}}
+\end{table}
 
-Figure~\ref{fig:ablation} is deliberately adversarial. It shows that force advancement is the dominant ingredient for latency invariance in the one-dimensional model. Contact-age target phasing alone tracks the delayed-force failure mode because it still compares the target against stale force evidence. The full method improves the peak from 9.04 N to 8.48 N relative to force advancement alone, but this is a modest overshoot improvement, not a separate proof of novelty over prediction-based delay compensation.
+\paragraph{Nominal profile.}
+The nominal profile matches the controller model. \caic{} has zero unsafe peaks in this family. This is the regime where the algebraic same-mode claim is valid.
 
-\begin{figure}[t]
+\paragraph{Deadband profile.}
+The deadband profile delays force onset until penetration exceeds a small threshold. \caic{} remains safe because the event-age ramp is conservative and the predicted force remains small until the deadband closes. The profile is a negative control for early contact estimates: a small geometry mismatch does not automatically produce unsafe force.
+
+\paragraph{Force-cap profile.}
+The force-cap profile clips maximum force. It is not a realistic safety guarantee because real caps may be actuator, material, or controller dependent, but it verifies that the metrics behave sensibly when peak force is physically bounded.
+
+\paragraph{Soft-to-hard profile.}
+The soft-to-hard profile starts compliant and then stiffens. \caic{} remains below the 12 N threshold in this suite, but its mean peak force rises above nominal. The controller is initially optimistic, then sees increasing resistance. The event-age ramp helps because the target force is still limited early in contact.
+
+\paragraph{Hard-to-soft profile.}
+The hard-to-soft profile is the main failure. \caic{} has a 75.0\% unsafe rate in that profile family. The controller initially sees high stiffness and then the surface becomes softer, so a local model calibrated to the first phase can overpredict resistance later. This is the clearest reason not to claim global contact-mode invariance.
+
+\paragraph{Wrong-event control.}
+The wrong-event negative control shows that the contact-age coordinate is only as good as its event estimate. It does not fail everywhere, but it is consistently worse in profile shifts. The result supports the paper's central framing: event-age state is useful because it is explicit and auditable, not because any event timestamp is automatically correct.
+
+\paragraph{Why the table is useful.}
+Table~\ref{tab:mode-profile} prevents a misleading average. The overall mode-suite unsafe rate for \caic{} is 15.0\%, but the average is composed of four safe profile families and one sharply unsafe family. Smith-style prediction has a similar structure but is slightly worse on hard-to-soft transitions in this suite. Delayed force feedback is unsafe in every non-capped profile family, which confirms that the profile failures are not artifacts of the event-age representation alone. The table also clarifies why the force-cap profile should not be treated as a win: it is safe because the environment itself clips force, not because the controller made a better decision.
+
+\paragraph{Operational boundary.}
+The practical rule is that \caic{} needs a mode-validity monitor. The same local force-advance equation can be reasonable before and after a small parameter drift, but it is not valid across an unannounced change from high stiffness to lower stiffness. In hardware this boundary could appear when a tool tip punches through a stiff surface into softer backing, when an object slips into a different constraint, or when contact moves from an edge to a compliant face. The controller should therefore treat unexplained prediction residuals as a reason to reduce authority, not as noise to average away.
+
+\clearpage
+\section{Appendix G: Secondary Aggregate Tables}
+
+The main text reports the leaderboard and the most diagnostic plots. This appendix records the secondary aggregate tables generated by the same summarize-only path. They are included to make the final paper auditable under different scalar preferences.
+
+\begin{table}[t]
     \centering
-    \includegraphics[width=0.86\linewidth]{figures/seeded_stress_peak_force.png}
-    \caption{Seeded stress test over 30 random seeds with stiffness, damping, servo time constant, initial gap, model-estimate, and effective-latency perturbations. Markers show mean peak force; error bars are 95 percent confidence intervals over seeds.}
-    \label{fig:stress}
-\end{figure}
+    \scriptsize
+    \caption{Large stress-suite quantiles and final-force error. P50, P90, P95, and Max are peak force in Newtons. Unsafe/miss counts both peak force above 12 N and no-contact runs.}
+    \label{tab:stress-quantiles}
+    \resizebox{\linewidth}{!}{\input{tables/stress_quantiles.tex}}
+\end{table}
 
-We also run a 30-seed stress test with randomized stiffness, damping, servo time constant, initial gap, stiffness/damping estimates, and effective latency. At 150 ms configured latency, delayed force feedback reaches $69.75\pm3.66$ N mean peak force, the delay-scaled cautious baseline reaches $33.71\pm0.60$ N, and the full controller reaches $8.64\pm0.40$ N. Across all stress runs, the full controller exceeds 12 N in 1.3 percent of runs, compared with 80.7 percent for both delayed force feedback and the cautious baseline. The stress test therefore supports bounded robustness in this local model, not deployment readiness.
+Table~\ref{tab:stress-quantiles} explains why the stress-suite conclusion is not a single-number win. Delayed force feedback has a median peak of 54.21 N and a p95 of 169.14 N, so latency failure is not a tail-only problem. Tuned cautious control has a safe-looking median of 9.66 N, but the unsafe-or-missed rate is 79.4\%, which means a median-only report would hide many task failures. One-step MPC has the best p95 peak force, 10.72 N, but its final-force error is 3.50 N. \caic{} and Smith-style prediction have nearly identical peak-force tails, but \caic{} has a slightly lower p95 and slightly lower final error in this suite.
 
-\paragraph{Adversarial checks.}
-The formal audit reports a same-mode maximum residual of $7.1\times10^{-15}$ N for 10,000 random samples. It also finds a mode-switch counterexample with 25.93 N residual for a naive force-advance rule applied across pre-contact to post-contact samples. With a 15 percent stiffness error and 15 percent damping error in opposite directions, the mean force-prediction residual is 1.28 N and the max residual is 3.86 N. These failures are important: exact invariance requires the local model and contact mode to be right. The ablation in Figure~\ref{fig:ablation} adds another boundary: this paper must not claim that contact-age phasing alone solves delayed contact evidence.
+\begin{table}[t]
+    \centering
+    \scriptsize
+    \caption{Model-mismatch latency boundary. P95 entries are peak force in Newtons; unsafe is peak force above 12 N. AWA denotes adaptive windowed advancement.}
+    \label{tab:mismatch-latency}
+    \resizebox{\linewidth}{!}{\input{tables/mismatch_latency_table.tex}}
+\end{table}
 
-\section{Limitations}
+Table~\ref{tab:mismatch-latency} slices the mismatch grid by latency. The useful pattern is that mismatch is not dangerous at every latency; it becomes consequential as latency increases and the force-advance interval grows. The table also shows that Smith-style prediction is not immune to mismatch, because it uses the same local model family. Adaptive windowed advancement is competitive in some mismatch cells but becomes unsafe in later profile-shift tests, so the paper treats it as a useful baseline rather than the preferred interface.
 
-This is not a hardware paper. The evidence is a controlled one-dimensional simulator designed to isolate a timing assumption. The method assumes fast timestamped proprioception and a useful local contact model. Unknown geometry, deformable contact, stick-slip friction, actuator saturation, and unobserved contact modes can break the mechanism. The new ablation weakens the original rhetorical position: in this simulator, force advancement alone is already nearly latency invariant, so the contribution cannot be sold as a wholly new alternative to prediction-based delay compensation. The honest claim is that representing contact event age exposes when local prediction is semantically valid, when it crosses a hybrid boundary, and how force targets should be phased at first contact. The literature sweep contains 1242 OpenAlex entries and a 100-paper hostile set, but the automated 225-paper deep tier is an abstract/metadata classification rather than a manual full-PDF read. The correct readiness judgment is therefore conservative: the idea is plausible and runnable, but it needs multi-DOF simulation, tactile timestamp estimation, and hardware validation before a strong conference submission.
+\begin{table}[t]
+    \centering
+    \scriptsize
+    \caption{Negative-control peak forces in Newtons. These runs verify that the implementation does not manufacture a benefit when latency is zero or when the event clock is intentionally wrong.}
+    \label{tab:negative-controls}
+    \resizebox{0.82\linewidth}{!}{\input{tables/negative_controls_table.tex}}
+\end{table}
 
-\section{Conclusion}
+Table~\ref{tab:negative-controls} is intentionally small. At zero latency, all predictive methods are near target, so \caic{} is not claiming a free benefit where no delayed contact evidence exists. At higher latency, delayed force feedback becomes unsafe while Smith-style prediction and \caic{} remain near target in the nominal mode. Wrong-event control remains near target in this tiny negative-control table, which is why the broader mode suite is necessary: wrong event timing is not always catastrophic, but it erodes reliability when profile shifts are added.
 
-Contact latency in manipulation is not only a delayed signal problem. At first contact, it is a delayed hybrid-event semantics problem. Treating the contact timing mismatch as a state variable leads to a simple controller that advances delayed force evidence and phases force objectives by contact age. In the local linear-contact regime this cancels constant force-sensing latency exactly; outside that regime, the same formal check exposes the failure modes. The ablation clarifies the mechanism: local force advancement carries most of the invariance, and contact-age phasing reduces first-contact overshoot. The broader lesson is that embodied controllers should sometimes be invariant to observation time by moving into event-age coordinates, but this paper is only a local simulation argument for that design principle.
+\paragraph{Why these tables are in the paper.}
+The added tables are not meant to overwhelm the reader with every CSV cell. They make three review-relevant checks possible. First, a reader who cares about final force tracking can see that low peak force alone is not enough. Second, a reader who cares about tails can see max force and unsafe-or-missed rates rather than just means. Third, a reader who suspects a tuned baseline could erase the result can see that the strong baselines are named, tuned, and reported with the same metrics.
 
+\clearpage
+\section{Appendix H: Baseline Tuning And Failure Ledger}
+
+This appendix records how the deliberately simple delayed-feedback baselines were tuned and why they still fail. The point is not that delayed feedback is universally bad. The point is narrower: if a controller treats delayed force as the current contact state, then no scalar gain, smoothing constant, or approach-speed schedule can reconstruct the missing first-contact interval.
+
+\begin{table}[t]
+    \centering
+    \scriptsize
+    \caption{Training-grid selection for the three tunable delayed-feedback baselines. Score is mean peak force plus 0.25 times mean final-force error on the tuning grid. Unsafe/miss counts peak force above 12 N or no-contact outcomes.}
+    \label{tab:tuning-selection}
+    \resizebox{\linewidth}{!}{\input{tables/tuning_selection_table.tex}}
+\end{table}
+
+\paragraph{Tuning protocol.}
+The tuning grid has 288 runs: three delayed-feedback baseline families, their candidate hyperparameters, six training latencies from 0 to 200 ms, and three training profiles. The profiles are nominal, soft-to-hard, and deadband. Hard-to-soft and force-cap profiles are held out of the tuning grid. The objective is intentionally simple and favorable to the baselines: it minimizes peak force plus a small final-error penalty. It does not use \caic{} results, event-estimator results, or the large stress-suite seeds.
+
+Table~\ref{tab:tuning-selection} shows the selected values. Cautious feedback selects the largest latency slowdown, $\gamma=40$, because smaller slowdowns produce higher training peaks. Low-pass delayed feedback selects $\alpha=0.70$, the least sluggish filter among the candidates, because filtering does not fix stale event evidence. Latency gain scheduling selects 28, the strongest tested attenuation. These are not underpowered choices. They are the choices that make delayed baselines as forgiving as this training protocol allows.
+
+\paragraph{Why tuning does not close the gap.}
+The tuning table also shows why these baselines are structurally limited. Every candidate has an 83.3\% unsafe-or-missed rate on the training grid. This looks harsh, but it is the result of asking a delayed-state controller to solve both impact safety and final-force regulation over nonzero latencies. If it moves fast enough to reach the target, it often overshoots before force evidence arrives. If it moves slowly enough to avoid impact, it often misses useful contact or settles with large final error. A tuning grid can slide along this tradeoff, but it cannot create a current post-contact state estimate from a pre-contact delayed sample.
+
+\paragraph{Delayed feedback.}
+The plain delayed controller is the necessary lower bound. It approaches until delayed force appears, then closes a feedback loop on $\force_{t-\lat}$. Its failure is not merely high gain. At first contact the measured signal still says zero, so the controller keeps pushing through the blind interval. This is why delayed feedback reaches 111.90 N in the nominal latency grid and 169.14 N p95 in the large stress suite.
+
+\paragraph{Tuned cautious feedback.}
+Cautious feedback is the strongest non-predictive delayed baseline because it directly slows approach as latency increases. It is useful in the narrow sense that it reduces some impacts. Its cost is task completion: in the large stress suite it has a 36.2\% no-contact rate and a 79.4\% unsafe-or-missed rate. That is not a harmless conservative controller; it is a controller that often avoids the safety problem by not performing the contact task.
+
+\paragraph{Low-pass delayed feedback and gain scheduling.}
+Low-pass filtering reduces noise in the delayed channel, but the delayed sample is still on the wrong side of the contact event. Gain scheduling attenuates command authority as latency grows, but it still relies on delayed force as the state. Both are reasonable controls a practitioner might try before adding a predictor. Their failure in this paper is therefore informative: smoothing and scalar attenuation do not solve a semantic event-age mismatch.
+
+\paragraph{Smith-style prediction.}
+Smith-style prediction is the strongest hostile baseline because it uses the same local force-advance mechanism that gives \caic{} most of its nominal benefit. The paper treats this honestly. Smith-style prediction remains close to \caic{} in the nominal grid and large stress suite. The difference is interpretive and operational: \caic{} makes the event-age origin and target phasing explicit, while the Smith-style baseline is a force predictor wrapped around a constant target. In regimes where event timing is known and the mode is fixed, the two should be close.
+
+\paragraph{One-step MPC.}
+One-step MPC is allowed to be strong. It has the lowest p95 peak force in the large stress suite. The tradeoff is that it often under-drives the contact and therefore has much larger final-force error. This is a legitimate control choice for a safety-first task, but it does not remove the need to report target tracking. The paper therefore uses both peak-force safety and final-force error rather than choosing whichever scalar favors \caic{}.
+
+\paragraph{Adaptive windowed advancement.}
+Adaptive windowed advancement is a useful bridge between fixed-model prediction and online identification. Its failure cases are exactly what the contact-age framing predicts: delayed samples from a shifted contact profile can be used to adapt the wrong local model. Online identification helps only if the sample history is from the same contact mode that the controller is about to advance.
+
+\paragraph{\caic{} itself.}
+\caic{} fails when its two explicit assumptions fail. If contact-event timing is missing or delayed until the force edge arrives, it loses the blind interval. If the current contact mode differs from the mode that generated the delayed sample, the force advance can be unsafe. The value of the interface is that these assumptions are named, measurable, and testable. A hardware implementation should monitor them rather than treating the controller as a black-box policy.
+
+\section{Appendix I: Artifact Map}
+
+The repository is organized so that each claim in the paper points to a concrete artifact.
+
+\begin{center}
+\scriptsize
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{@{}lp{0.72\linewidth}@{}}
+\toprule
+Artifact & Purpose \\
+\midrule
+\texttt{src/contact\_latency.py} & Minimal simulator and original controllers. \\
+\texttt{scripts/run\_experiments.py} & Original latency sweep, ablation, 30-seed stress, and original figures. \\
+\texttt{scripts/verify\_claims.py} & Formal same-mode check, mode-switch counterexample, and model-mismatch audit. \\
+\texttt{scripts/run\_full\_scale\_experiments.py} & Expanded 12,544-rollout streamed experiment suite. \\
+\texttt{results/summary.json} & Original deterministic sweep summary. \\
+\texttt{results/stress\_summary.json} & Original 30-seed stress summary. \\
+\texttt{results/full\_scale/leaderboard.csv} & Aggregated expanded leaderboard with unsafe and no-contact rates. \\
+\texttt{results/full\_scale/tuning\_grid.csv} & Training-grid rows used to select tunable delayed-feedback baselines. \\
+\texttt{results/full\_scale/full\_scale\_summary.json} & Full-scale runtime, suite sizes, and selected tuned hyperparameters. \\
+\texttt{paper/figures/stress\_pareto\_tradeoff.png} & Safety-tracking tradeoff figure generated from large stress metrics. \\
+\texttt{paper/figures/event\_latency\_failure\_heatmap.png} & Event-estimator latency-boundary heatmap generated from the event suite. \\
+\texttt{paper/figures/} & Paper-ready figures copied from generated outputs. \\
+\texttt{paper/tables/} & Generated table fragments for leaderboards, boundaries, quantiles, and negative controls. \\
+\bottomrule
+\end{tabular}
+}
+\end{center}
+
+\section{Appendix J: What Would Be Required For Hardware}
+
+The current evidence is not enough for a hardware claim. A hardware version would need at least five additions.
+
+\paragraph{Timestamped contact-event estimation.}
+The robot would need a contact-event estimator that fuses geometry, proprioceptive residuals, tactile edges, and force edges with calibrated latency. The event-estimation suite shows why this is not optional.
+
+\paragraph{Multi-axis local contact models.}
+The one-dimensional Kelvin--Voigt model should be replaced with a local normal/tangential contact model. The same event-age idea can carry over, but Eq.~\ref{eq:advance} would become a vector or contact-frame predictor.
+
+\paragraph{Mode-validity monitoring.}
+The controller should detect when delayed and current samples are likely from different contact modes. Hard-to-soft failures show that same-mode validity cannot be assumed.
+
+\paragraph{Guarded fallback.}
+When event confidence or mode confidence is low, the controller should reduce approach speed, retract, or switch to a probing policy. The current script reports failures rather than adding such a supervisor.
+
+\paragraph{Physical calibration.}
+The model-mismatch grid indicates which calibration errors are dangerous. Hardware experiments should therefore report stiffness-estimate bias, damping-estimate bias, timestamp jitter, and dropped-event rate, not only task success.
+
+\clearpage
 \bibliography{references}
 \bibliographystyle{iclr2026_conference}
 
