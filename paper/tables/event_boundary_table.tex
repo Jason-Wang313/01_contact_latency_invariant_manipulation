@@ -1,0 +1,12 @@
+\begin{tabular}{lrrrrr}\toprule
+Event model & $n$ & Mean & P95 & Max & Unsafe\\
+\midrule
+delayed force edge & 240 & 28.48 & 47.81 & 47.81 & 100.0\%\\
+geometry prior, early 2.0 mm & 240 & 8.96 & 8.96 & 8.96 & 0.0\%\\
+geometry prior, late 2.0 mm & 240 & 8.19 & 8.19 & 8.19 & 0.0\%\\
+noisy guard, bias -6 ms, jitter 4 ms & 240 & 8.58 & 8.75 & 8.83 & 0.0\%\\
+noisy guard, jitter 2 ms & 240 & 8.49 & 8.52 & 8.54 & 0.0\%\\
+noisy guard, jitter 4 ms, drop 0.2 & 240 & 50.65 & 261.35 & 261.35 & 16.7\%\\
+noisy guard, bias 8 ms, jitter 4 ms & 240 & 8.49 & 8.51 & 8.53 & 0.0\%\\
+perfect guard & 240 & 8.48 & 8.48 & 8.48 & 0.0\%\\
+\bottomrule\end{tabular}
