@@ -17,7 +17,7 @@ The narrow novelty is the combination of:
 
 The paper does not claim novelty over impedance control, force control, Smith prediction, passivity, tactile contact estimation, or contact-rich learning in general.
 
-Submission-hardening v2 narrows this further: the new mechanism ablation shows force advancement alone removes most latency sensitivity in the 1D simulator (`max_peak_force_n=9.04`, zero measured slope), while the full controller mainly reduces first-contact overshoot (`max_peak_force_n=8.48`). The paper must therefore sell contact-age phasing as safety shaping and semantic bookkeeping, not as the sole cause of invariance.
+The v2 hardening pass narrows this further: the new mechanism ablation shows force advancement alone removes most latency sensitivity in the 1D simulator (`max_peak_force_n=9.04`, zero measured slope), while the full controller mainly reduces first-contact overshoot (`max_peak_force_n=8.48`). The paper must therefore sell contact-age phasing as safety shaping and semantic bookkeeping, not as the sole cause of invariance.
 
 Full-scale v3 narrows and strengthens the claim again. The final manuscript treats CAIC as an event-age interface around local prediction, not a dominance claim. Smith-style prediction is a close hostile baseline, and one-step MPC wins some peak-force scalars while losing final-force tracking.
 
@@ -30,7 +30,7 @@ Closest hostile clusters:
 
 Representative cited hostile works include Smith (1957), Raibert and Craig (1981), Mason (1981), Hogan (1985), Anderson and Spong (1989), Niemeyer and Slotine (1991), Stramigioli et al. (2005), Franken et al. (2011), Posa et al. (2014), Beltran-Hernandez et al. (2020), and Suomalainen et al. (2022).
 
-Submission-hardening v2 also adds recent force/tactile policy threats: Xie et al. (2024), Xue et al. (2025), and Zang et al. (2026). These make any broad novelty claim around force/tactile feedback untenable.
+The v2 hardening pass also adds recent force/tactile policy threats: Xie et al. (2024), Xue et al. (2025), and Zang et al. (2026). These make any broad novelty claim around force/tactile feedback untenable.
 
 ## 6. Literature Coverage
 - `docs/related_work_matrix.csv`: 1242 entries.
@@ -91,6 +91,20 @@ The paper is still not a hardware-ready robotics result. Its honest final form i
 
 ## 11. Exact Downloads PDF Path
 `C:/Users/wangz/Downloads/01.pdf`
+
+2026-06-21 VLA highlight-hardening verification:
+
+- Pages: 26
+- Size: 1,254,294 bytes
+- SHA256: `92E7BE958E6A5761619853445346A31D3C281FD23EF73D200DB8A4CD16A1F013`
+- Link annotations: 52 total on pages `[(2, 33), (3, 2), (4, 2), (5, 1), (7, 1), (8, 1), (9, 2), (13, 1), (15, 2), (19, 1), (20, 1), (21, 3), (23, 1), (25, 1)]`
+- Colors: green = 35, red = 17, cyan = 0
+- Borders: `(0, 0, 1)` for all annotations
+- Oversized page-edge annotation audit: 0 malformed rectangles
+- Visual audit: pages 2, 3, 4, 5, 7, 8, 9, 13, 15, 19, 20, 21, 23, and 25 rendered and inspected
+- Cleanup: no duplicate `C:/Users/wangz/Downloads/1.pdf`; local `paper/main.pdf` removed after export
+
+Marker check on the Downloads PDF passed for: `12,544`, `111.90`, `8.48`, `9.22`, `3.1%`, `261.35`, `Contact-Age Invariant Control`, `CAIC`, and `claim`.
 
 ## 12. GitHub URL
 `https://github.com/Jason-Wang313/01_contact_latency_invariant_manipulation`

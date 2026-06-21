@@ -2,8 +2,8 @@
 
 Paper: 01_contact_latency_invariant_manipulation
 
-Hardening version: v2
-Date: 2026-06-12 19:01:59 +01:00
+Hardening version: v3.1
+Date: 2026-06-21
 
 ## Attack Rounds
 
@@ -20,8 +20,12 @@ Date: 2026-06-12 19:01:59 +01:00
 | 9 | Reproducibility depends on undocumented outputs. | Updated README and added reproducibility checklist. | Dependency versions are ranges. |
 | 10 | Figures may overstate full method. | Added mechanism ablation figure and text saying force advancement dominates. | Main title may still sound broad. |
 | 11 | Stress test hides failures. | Recorded max, p95, failure rate over 12 N, and 150 ms CI in docs. | No per-seed appendix table in paper body. |
-| 12 | ICLR fit is weak. | Marked terminal state workshop-only / strong-revise for main conference. | Venue fit remains weak. |
+| 12 | ICLR fit is weak. | Marked the v2 terminal state as not main-conference ready. | Venue fit remains weak without hardware or multi-DOF evidence. |
+| 13 | Short mechanism note is not enough. | Expanded v3 to a 26-page full-scale simulation/mechanism manuscript with 12,544 streamed rollouts, stronger baselines, event-estimator boundaries, mismatch grids, mode/profile shifts, and negative controls. | Still local simulation. |
+| 14 | PDF link boxes must visually match the visible VLA-v4 role model. | Added explicit hyperref boxed-link policy, rebuilt, rendered all link-bearing pages, and verified green citation/URL boxes plus red internal-reference boxes. | Visual style is verified for this artifact; future source edits must preserve the policy. |
 
 ## Stop Condition
 
-Stopped before 50 rounds because the remaining meaningful attacks converge on the same non-recoverable limits: no hardware, only 1D local simulation, no multi-DOF contact modes, and force advancement accounting for most of the empirical gain. Recoverable documentation, ablation, stress-test, and claim-scope issues were fixed.
+The v3 pass completed the recoverable local scope: full-scale streamed experiments, stronger baselines, ablations, stress tests, event-estimation failures, model/mode mismatch studies, generated figures/tables, a 26-page final manuscript, and explicit limitations. Remaining meaningful attacks converge on the same non-recoverable limits: no hardware, only 1D local simulation, no multi-DOF contact modes, and force advancement accounting for most of the empirical gain.
+
+The 2026-06-21 VLA highlight-hardening pass completed visual delivery scope: `C:/Users/wangz/Downloads/01.pdf` is 26 pages, 1,254,294 bytes, SHA256 `92E7BE958E6A5761619853445346A31D3C281FD23EF73D200DB8A4CD16A1F013`, with 52 role-model-style link annotations and zero malformed page-edge rectangles.
