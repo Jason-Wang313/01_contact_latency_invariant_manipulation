@@ -77,7 +77,7 @@ PDF exists: True
 ## Submission Hardening v2
 
 Completed: 2026-06-12 19:05:42 +01:00
-Terminal decision: workshop-only
+Terminal decision: superseded by the v3 full-scale final decision
 Canonical PDF: C:/Users/wangz/Downloads/01.pdf
 
 Key changes:
@@ -86,3 +86,17 @@ Key changes:
 - Added recent 2024-2026 hostile force/tactile policy citations.
 - Narrowed claims after ablation showed force advancement dominates latency invariance.
 - Recompiled paper and replaced the canonical Downloads PDF.
+
+## VLA Highlight Hardening
+
+Completed: 2026-06-21
+Canonical PDF: C:/Users/wangz/Downloads/01.pdf
+
+Key changes:
+- Added explicit VLA-v4 boxed-link `\hypersetup` in `paper/main.tex`.
+- Rebuilt with manual `pdflatex`, `bibtex`, `pdflatex`, `pdflatex` passes and replaced the canonical Downloads PDF only after verification.
+- Verified final PDF is 26 pages, 1,254,294 bytes, SHA256 `92E7BE958E6A5761619853445346A31D3C281FD23EF73D200DB8A4CD16A1F013`.
+- Verified 52 link annotations on pages `[(2, 33), (3, 2), (4, 2), (5, 1), (7, 1), (8, 1), (9, 2), (13, 1), (15, 2), (19, 1), (20, 1), (21, 3), (23, 1), (25, 1)]`.
+- Verified link colors match the role model: green = 35, red = 17, cyan = 0, with all borders `(0, 0, 1)`.
+- Rendered and visually inspected all link-bearing pages: 2, 3, 4, 5, 7, 8, 9, 13, 15, 19, 20, 21, 23, and 25.
+- Confirmed zero malformed page-edge annotations, no duplicate `C:/Users/wangz/Downloads/1.pdf`, and no leftover local `paper/main.pdf`.

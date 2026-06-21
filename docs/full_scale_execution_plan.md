@@ -124,3 +124,12 @@ No padding is allowed. If the paper does not naturally reach 20 pages after the 
 - Claims are updated to match evidence.
 - Docs/logs/reproducibility files are updated.
 - Repo is clean after final commit and push.
+
+## 2026-06-21 VLA Highlight Addendum
+
+- Explicit VLA-v4 boxed-link policy added to `paper/main.tex`.
+- Final artifact remains `C:\Users\wangz\Downloads\01.pdf`.
+- Verified final PDF: 26 pages, 1,254,294 bytes, SHA256 `92E7BE958E6A5761619853445346A31D3C281FD23EF73D200DB8A4CD16A1F013`.
+- Verified link inventory: 52 annotations; green = 35, red = 17, cyan = 0; all borders `(0, 0, 1)`.
+- Rendered and visually inspected all link-bearing pages: 2, 3, 4, 5, 7, 8, 9, 13, 15, 19, 20, 21, 23, and 25.
+- Verified zero malformed page-edge rectangles, no duplicate `1.pdf`, and no leftover local `paper/main.pdf`.

@@ -29,4 +29,4 @@
 14. **Attack:** Contact-age phasing is not the reason the main curve is flat.
    **Response:** Agree. `force_advance_only` has 9.04 N max peak and zero latency slope in the ideal sweep, while the full method has 8.48 N. The paper should say phasing reduces overshoot after force advancement, not that phasing alone creates invariance.
 15. **Attack:** Stress tests are still synthetic.
-   **Response:** Agree. The 30-seed stress test perturbs stiffness, damping, servo time constant, initial gap, model estimates, and effective latency, but it is still a local 1D simulator. Decision remains workshop-only / strong-revise for main conference.
+   **Response:** Agree. The 30-seed stress test perturbs stiffness, damping, servo time constant, initial gap, model estimates, and effective latency, but it is still a local 1D simulator. The v3 final status is batch-final simulation/mechanism paper, not hardware-ready or main-conference ready.
